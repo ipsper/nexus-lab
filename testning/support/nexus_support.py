@@ -2,6 +2,7 @@
 Nexus Repository Manager integration test functions
 """
 import pytest
+import requests
 from support.api_client import APIClient
 
 
@@ -23,7 +24,7 @@ def test_nexus_health_check(nexus_client: APIClient):
             data = response.json()
             assert "data" in data
             assert "state" in data["data"]
-        except:
+        except (ValueError, requests.exceptions.JSONDecodeError):
             # JSON parsing failed, but endpoint responded - OK for startup
             pass
 
@@ -55,6 +56,6 @@ def test_nexus_api_through_kong(kong_client: APIClient):
             data = response.json()
             assert "data" in data
             assert "state" in data["data"]
-        except:
+        except (ValueError, requests.exceptions.JSONDecodeError):
             # JSON parsing failed, but endpoint responded - OK for startup
             pass
