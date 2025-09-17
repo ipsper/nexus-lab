@@ -23,6 +23,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: Slow running tests"
     )
+    config.addinivalue_line(
+        "markers", "k8s: Kubernetes integration tests (run separately on host)"
+    )
 
 
 @pytest.fixture(scope="session")
