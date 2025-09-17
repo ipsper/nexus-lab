@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-config
+  namespace: nexus
+data:
+  nexus.properties: |
+    # Nexus Repository Manager Configuration
+    nexus.scripts.allowCreation=true
+    nexus.security.randompassword=false
+    nexus.onboarding.enabled=false
+    nexus.scripts.allowCreation=true
+    nexus.security.randompassword=false
+    nexus.onboarding.enabled=false
+    nexus.scripts.allowCreation=true
+    nexus.security.randompassword=false
+    nexus.onboarding.enabled=false
+  nexus.vmoptions: |
+    # Nexus JVM Options
+    -Xms2g
+    -Xmx2g
+    -XX:MaxDirectMemorySize=3g
+    -Djava.util.prefs.userRoot=/nexus-data/javaprefs
+    -Dkaraf.home=/opt/sonatype/nexus
+    -Dkaraf.base=/opt/sonatype/nexus
+    -Dkaraf.etc=/opt/sonatype/nexus/etc/karaf
+    -Djava.util.logging.config.file=/opt/sonatype/nexus/etc/karaf/java.util.logging.properties
+    -Dkaraf.data=/nexus-data
+    -Dkaraf.log=/nexus-data/log
+    -Djava.io.tmpdir=/nexus-data/tmp
+    -Dkaraf.startLocalConsole=false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nexus-secret
+  namespace: nexus
+type: Opaque
+data:
+  admin.password: YWRtaW4xMjM=  # base64 encoded "admin123"
+  nexus.license: ""  # Empty for OSS version
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-headless
+  namespace: nexus
+spec:
+  clusterIP: None
+  ports:
+  - port: 8081
+    name: nexus
+  selector:
+    app: nexus
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-docker
+  namespace: nexus
+spec:
+  ports:
+  - port: 8082
+    targetPort: 8082
+    name: docker
+  selector:
+    app: nexus

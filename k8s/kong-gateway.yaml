@@ -1,0 +1,192 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kong
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kong-serviceaccount
+  namespace: kong
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kong-enterprise-license
+  namespace: kong
+type: Opaque
+stringData:
+  license: '{"license":{"signature":"test","payload":{"customer":"test","license_creation_date":"2023-01-01","product_subscription":"Kong Gateway","admin_seats":"1","support_plan":"None","license_expiration_date":"2024-01-01","license_key":"test"}}}'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: kong
+data:
+  kong.conf: |
+    database = off
+    declarative_config = /kong/declarative/kong.yml
+    proxy_access_log = /dev/stdout
+    proxy_error_log = /dev/stderr
+    admin_gui_listen = 0.0.0.0:8002
+    admin_listen = 0.0.0.0:8001
+    proxy_listen = 0.0.0.0:8000
+    status_listen = 0.0.0.0:8100
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-declarative
+  namespace: kong
+data:
+  kong.yml: |
+    _format_version: "3.0"
+    services:
+    - name: nexus-service
+      url: http://nexus-service.nexus.svc.cluster.local:8081
+      routes:
+      - name: nexus-route
+        paths:
+        - /nexus
+        - /nexus/
+        strip_path: true
+    - name: api-service
+      url: http://nexus-api-service.nexus-api.svc.cluster.local:3000
+      routes:
+      - name: api-route
+        paths:
+        - /api
+        - /api/
+        strip_path: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      serviceAccountName: kong-serviceaccount
+      containers:
+      - name: proxy
+        image: kong:3.4
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        - name: KONG_DECLARATIVE_CONFIG
+          value: "/kong/declarative/kong.yml"
+        - name: KONG_PROXY_ACCESS_LOG
+          value: "/dev/stdout"
+        - name: KONG_PROXY_ERROR_LOG
+          value: "/dev/stderr"
+        - name: KONG_ADMIN_GUI_LISTEN
+          value: "0.0.0.0:8002"
+        - name: KONG_ADMIN_LISTEN
+          value: "0.0.0.0:8001"
+        - name: KONG_PROXY_LISTEN
+          value: "0.0.0.0:8000"
+        - name: KONG_STATUS_LISTEN
+          value: "0.0.0.0:8100"
+        ports:
+        - containerPort: 8000
+          name: proxy
+        - containerPort: 8001
+          name: admin-api
+        - containerPort: 8002
+          name: admin-gui
+        - containerPort: 8100
+          name: status
+        volumeMounts:
+        - name: kong-config
+          mountPath: /etc/kong/kong.conf
+          subPath: kong.conf
+        - name: kong-declarative
+          mountPath: /kong/declarative
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 8100
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8100
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: kong-config
+        configMap:
+          name: kong-config
+      - name: kong-declarative
+        configMap:
+          name: kong-declarative
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-proxy
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  type: NodePort
+  ports:
+  - name: proxy
+    port: 8000
+    targetPort: 8000
+    nodePort: 30090
+    protocol: TCP
+  - name: admin-api
+    port: 8001
+    targetPort: 8001
+    nodePort: 30091
+    protocol: TCP
+  - name: admin-gui
+    port: 8002
+    targetPort: 8002
+    nodePort: 30092
+    protocol: TCP
+  selector:
+    app: kong
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-admin
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  type: ClusterIP
+  ports:
+  - name: admin-api
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+  - name: admin-gui
+    port: 8002
+    targetPort: 8002
+    protocol: TCP
+  selector:
+    app: kong
