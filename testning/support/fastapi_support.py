@@ -1,39 +1,43 @@
 """
-FastAPI Basic test functions
+FastAPI support functions - rena hjälpfunktioner
 """
-import pytest
 from support.api_client import APIClient
+from typing import Dict, Any, List
 
 
-def test_root_endpoint(api_client: APIClient):
-    """Test root endpoint returns 200"""
-    response = api_client.get("/")
-    assert response.status_code == 200
+def create_test_repository(api_client: APIClient, repo_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Skapa test repository"""
+    response = api_client.post("/repositories", data=repo_data)
+    return response.json()
 
 
-def test_health_endpoint(api_client: APIClient):
-    """Test health endpoint"""
-    response = api_client.get("/health")
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert "status" in data
-    assert data["status"] == "healthy"
+def get_repository_by_name(api_client: APIClient, name: str) -> Dict[str, Any]:
+    """Hämta repository efter namn"""
+    response = api_client.get(f"/repositories/{name}")
+    return response.json() if response.status_code == 200 else None
 
 
-def test_docs_endpoint(api_client: APIClient):
-    """Test API documentation endpoint"""
-    response = api_client.get("/docs")
-    assert response.status_code == 200
-    assert "text/html" in response.headers.get("content-type", "")
+def upload_test_package(api_client: APIClient, package_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Ladda upp test-paket"""
+    response = api_client.post("/packages", data=package_data)
+    return response.json()
 
 
-def test_openapi_endpoint(api_client: APIClient):
-    """Test OpenAPI schema endpoint"""
+def get_packages_by_name(api_client: APIClient, name: str) -> List[Dict[str, Any]]:
+    """Hämta paket efter namn"""
+    response = api_client.get(f"/packages/{name}")
+    return response.json() if response.status_code == 200 else []
+
+
+def get_repository_packages(api_client: APIClient, repo_name: str) -> List[Dict[str, Any]]:
+    """Hämta paket från specifik repository"""
+    response = api_client.get(f"/repositories/{repo_name}/packages")
+    return response.json() if response.status_code == 200 else []
+
+
+def get_openapi_schema(api_client: APIClient) -> Dict[str, Any]:
+    """Hämta OpenAPI schema"""
     response = api_client.get("/openapi.json")
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert "openapi" in data
-    assert "info" in data
-    assert data["info"]["title"] == "Nexus Repository Manager API"
+    return response.json() if response.status_code == 200 else {}
+
+

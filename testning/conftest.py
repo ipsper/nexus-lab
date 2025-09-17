@@ -21,6 +21,9 @@ def pytest_configure(config):
         "markers", "api: API endpoint tests"
     )
     config.addinivalue_line(
+        "markers", "gui: GUI tests with Playwright"
+    )
+    config.addinivalue_line(
         "markers", "slow: Slow running tests"
     )
     config.addinivalue_line(
@@ -114,3 +117,18 @@ def wait_for_services(api_base_url: str, kong_base_url: str, nexus_base_url: str
 def k8s_helper() -> K8sHelper:
     """Kubernetes helper for testing"""
     return K8sHelper()
+
+
+# Playwright fixtures
+@pytest.fixture(scope="session")
+def playwright_browser_type() -> str:
+    """Default browser type for Playwright tests"""
+    return "chromium"
+
+
+@pytest.fixture(scope="session")
+def playwright_headless() -> bool:
+    """Run Playwright in headless mode by default"""
+    import os
+    # Tillåt override via environment variable för debugging
+    return os.getenv("PLAYWRIGHT_HEADLESS", "true").lower() == "true"

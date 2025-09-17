@@ -1,61 +1,47 @@
 """
-Nexus Repository Manager integration test functions
+Nexus Repository Manager support functions - rena hjälpfunktioner
 """
-import pytest
 import requests
 from support.api_client import APIClient
+from typing import Optional
 
 
-def test_nexus_accessible(nexus_client: APIClient):
-    """Test Nexus is accessible"""
-    response = nexus_client.get("/")
-    assert response.status_code == 200
-    assert "Nexus Repository Manager" in response.text
-
-
-def test_nexus_health_check(nexus_client: APIClient):
-    """Test Nexus health check endpoint"""
-    response = nexus_client.get("/service/rest/v1/status")
-    # Nexus may not be fully ready yet, accept 404 or 503
-    assert response.status_code in [200, 404, 503]
-    
-    if response.status_code == 200 and response.text.strip():
-        try:
+def get_nexus_version(nexus_client: APIClient) -> Optional[str]:
+    """Hämta Nexus version"""
+    try:
+        response = nexus_client.get("/service/rest/v1/status")
+        if response.status_code == 200:
             data = response.json()
-            assert "data" in data
-            assert "state" in data["data"]
-        except (ValueError, requests.exceptions.JSONDecodeError):
-            # JSON parsing failed, but endpoint responded - OK for startup
-            pass
+            return data.get("data", {}).get("version")
+    except:
+        pass
+    return None
 
 
-def test_nexus_repositories(nexus_client: APIClient):
-    """Test Nexus repositories endpoint"""
+def is_nexus_ready(nexus_client: APIClient) -> bool:
+    """Kontrollera om Nexus är redo"""
+    try:
+        response = nexus_client.get("/service/rest/v1/status")
+        if response.status_code == 200:
+            data = response.json()
+            state = data.get("data", {}).get("state")
+            return state == "STARTED"
+    except:
+        pass
+    return False
+
+
+def get_repositories_list(nexus_client: APIClient) -> list:
+    """Hämta lista över repositories"""
     response = nexus_client.get("/service/rest/v1/repositories")
-    assert response.status_code == 200
-    
-    data = response.json()
-    assert isinstance(data, list)
+    if response.status_code == 200:
+        return response.json()
+    return []
 
 
-def test_nexus_through_kong(kong_client: APIClient):
-    """Test Nexus access through Kong Gateway"""
-    response = kong_client.get("/nexus")
-    assert response.status_code == 200
-    assert "Nexus Repository Manager" in response.text
+def repository_exists(nexus_client: APIClient, repo_name: str) -> bool:
+    """Kontrollera om repository finns"""
+    repositories = get_repositories_list(nexus_client)
+    return any(repo.get("name") == repo_name for repo in repositories)
 
 
-def test_nexus_api_through_kong(kong_client: APIClient):
-    """Test Nexus API access through Kong Gateway"""
-    response = kong_client.get("/nexus/service/rest/v1/status")
-    # Nexus may not be fully ready yet, accept 404 or 503
-    assert response.status_code in [200, 404, 503]
-    
-    if response.status_code == 200 and response.text.strip():
-        try:
-            data = response.json()
-            assert "data" in data
-            assert "state" in data["data"]
-        except (ValueError, requests.exceptions.JSONDecodeError):
-            # JSON parsing failed, but endpoint responded - OK for startup
-            pass
