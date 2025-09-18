@@ -536,12 +536,16 @@ Projektet har ett omfattande testsystem med:
 ./scripts/run-test.sh run-api                # API-tester (utan GUI)
 ./scripts/run-test.sh run-gui                # GUI-tester
 ./scripts/test.sh all                        # Alla tester
+
+# Testning mot annan miljö
+TEST_HOST=192.168.1.100 ./scripts/run-test.sh run-api    # Annan host
+TEST_PORT=9000 ./scripts/run-test.sh run-gui             # Annan port
 ```
 
 **📖 Detaljerade guider:**
 - **[🔧 run.sh README](scripts/run-README.md)** - Komplett guide för huvudskriptet
 - **[🐛 k8s-debug.sh README](scripts/k8s-debug-README.md)** - Avancerad felsökningsguide  
-- **[🧪 Testsystem README](testning/README.md)** - Komplett testguide
+- **[🧪 Testsystem README](testning/README.md)** - Komplett testguide med konfigurerbara URL:er
 
 
 ### Skriptfunktioner:
@@ -561,6 +565,14 @@ Projektet har ett omfattande testsystem med:
 - **Nätverksdiagnostik** och anslutningstester
 - **Event-analys** för att identifiera problem
 - **Health check-verifiering** för alla tjänster
+
+#### run-test.sh (Testsystem)
+- **Konfigurerbara URL:er** via miljövariabler (TEST_HOST, TEST_PORT)
+- **Persistent Docker-container** med docker exec för snabbare tester
+- **Separata testtyper**: Health, API, GUI, K8s
+- **Stop-on-failure** som standard med `--to-the-end` flagga
+- **Playwright GUI-tester** med Chromium, Firefox support
+- **Automatisk miljökonfiguration** visas vid container-start
 
 ## Support och dokumentation
 

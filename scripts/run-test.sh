@@ -48,6 +48,12 @@ show_help() {
     echo "  logs                Visa test-logs"
     echo "  help                Visa denna hjälp"
     echo ""
+    echo "Miljövariabler (för att konfigurera test-URLs):"
+    echo "  TEST_HOST           Host för tester (default: localhost)"
+    echo "  TEST_PORT           Port för Kong Gateway (default: 8000)"
+    echo "  KONG_ADMIN_PORT     Port för Kong Admin API (default: 8001)"
+    echo "  NEXUS_DIRECT_PORT   Port för direkt Nexus-åtkomst (default: 8081)"
+    echo ""
     echo "Exempel:"
     echo "  $0 run-health                  # Kör health checks (stannar vid fel)"
     echo "  $0 run-api                     # Kör API-tester (utan GUI)"
@@ -55,6 +61,7 @@ show_help() {
     echo "  $0 run-api --to-the-end        # Kör API-tester (fortsätt vid fel)"
     echo "  $0 run-gui --to-the-end        # Kör GUI-tester (fortsätt vid fel)"
     echo "  $0 run -k test_health          # Kör custom pytest-kommando"
+    echo "  TEST_HOST=192.168.1.100 $0 run-api  # Kör API-tester mot annan host"
     echo "  $0 stop                        # Stoppa test-container"
 }
 
@@ -102,6 +109,12 @@ start_test_container() {
         build_test_container
     fi
     
+    # Set default test environment variables
+    local test_host="${TEST_HOST:-localhost}"
+    local test_port="${TEST_PORT:-8000}"
+    local kong_admin_port="${KONG_ADMIN_PORT:-8001}"
+    local nexus_direct_port="${NEXUS_DIRECT_PORT:-8081}"
+    
     # Start container in background
     print_info "Startar test-container i bakgrunden..."
     docker run -d \
@@ -110,10 +123,19 @@ start_test_container() {
         -v "$(pwd)/testning:/app" \
         -v "$HOME/.kube:/root/.kube" \
         -e KUBECONFIG=/root/.kube/config \
+        -e TEST_HOST="$test_host" \
+        -e TEST_PORT="$test_port" \
+        -e KONG_ADMIN_PORT="$kong_admin_port" \
+        -e NEXUS_DIRECT_PORT="$nexus_direct_port" \
         nexus-test:latest \
         sleep infinity
     
     print_success "Test-container startad som '$container_name'"
+    print_info "Konfiguration:"
+    print_info "  TEST_HOST=$test_host"
+    print_info "  TEST_PORT=$test_port"
+    print_info "  KONG_ADMIN_PORT=$kong_admin_port"
+    print_info "  NEXUS_DIRECT_PORT=$nexus_direct_port"
 }
 
 # Execute pytest command in container
