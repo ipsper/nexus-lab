@@ -25,5 +25,5 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PYTEST_CURRENT_TEST=true
 
-# Default command
-CMD ["python3", "-m", "pytest", "-v", "--tb=short"]
+# Default command - starta bash shell
+CMD ["/bin/bash"]

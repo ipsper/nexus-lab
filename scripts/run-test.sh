@@ -36,20 +36,26 @@ show_help() {
     echo "Användning: $0 [KOMANDO]"
     echo ""
     echo "Kommandon:"
-    echo "  run                 Kör alla tester"
-    echo "  run-unit            Kör endast unit-tester"
-    echo "  run-integration     Kör endast integration-tester"
-    echo "  run-api             Kör endast API-tester"
-    echo "  run-slow            Kör inklusive långsamma tester"
+    echo "  run                 Kör custom pytest-kommando"
+    echo "  run-all             Kör alla tester"
+    echo "  run-health          Kör health checks (stannar vid första fel)"
+    echo "  run-api             Kör API-tester utan GUI (stannar vid första fel)"
+    echo "  run-gui             Kör GUI-tester (stannar vid första fel)"
+    echo "  run-k8s             Kör K8s-tester (stannar vid första fel)"
     echo "  build               Bygg test-container"
+    echo "  stop                Stoppa test-container"
     echo "  clean               Rensa test-containers och images"
     echo "  logs                Visa test-logs"
     echo "  help                Visa denna hjälp"
     echo ""
     echo "Exempel:"
-    echo "  $0 run              # Kör alla tester"
-    echo "  $0 run-unit         # Kör endast unit-tester"
-    echo "  $0 run-integration  # Kör integration-tester"
+    echo "  $0 run-health                  # Kör health checks (stannar vid fel)"
+    echo "  $0 run-api                     # Kör API-tester (utan GUI)"
+    echo "  $0 run-gui                     # Kör bara GUI-tester"
+    echo "  $0 run-api --to-the-end        # Kör API-tester (fortsätt vid fel)"
+    echo "  $0 run-gui --to-the-end        # Kör GUI-tester (fortsätt vid fel)"
+    echo "  $0 run -k test_health          # Kör custom pytest-kommando"
+    echo "  $0 stop                        # Stoppa test-container"
 }
 
 # Check if Docker is running
@@ -80,59 +86,163 @@ build_test_container() {
     print_success "Test-container byggd!"
 }
 
-# Run tests
-run_tests() {
-    local test_type="$1"
-    local pytest_args=""
+# Start test container if not running
+start_test_container() {
+    local container_name="nexus-test-runner"
     
-    case "$test_type" in
-        "unit")
-            pytest_args="-m unit"
-            print_info "Kör unit-tester..."
-            ;;
-        "integration")
-            pytest_args="-m integration"
-            print_info "Kör integration-tester..."
-            ;;
-        "api")
-            pytest_args="-m api"
-            print_info "Kör API-tester..."
-            ;;
-        "slow")
-            pytest_args="-m slow"
-            print_info "Kör långsamma tester..."
-            ;;
-        "all")
-            pytest_args=""
-            print_info "Kör alla tester..."
-            ;;
-    esac
+    # Check if container is already running
+    if docker ps --filter "name=$container_name" --filter "status=running" | grep -q $container_name; then
+        print_info "Test-container körs redan"
+        return 0
+    fi
     
-    # Check if test container exists
+    # Check if test image exists
     if ! docker image inspect nexus-test:latest >/dev/null 2>&1; then
         print_info "Test-container finns inte, bygger den..."
         build_test_container
     fi
     
-    # Run tests in container
-    print_info "Startar tester i container..."
-    
-    docker run --rm \
+    # Start container in background
+    print_info "Startar test-container i bakgrunden..."
+    docker run -d \
+        --name $container_name \
         --network host \
         -v "$(pwd)/testning:/app" \
         -v "$HOME/.kube:/root/.kube" \
         -e KUBECONFIG=/root/.kube/config \
         nexus-test:latest \
-        pytest -v --tb=short --html=report.html --self-contained-html $pytest_args
+        sleep infinity
     
-    print_success "Tester slutförda!"
+    print_success "Test-container startad som '$container_name'"
+}
+
+# Execute pytest command in container
+exec_pytest() {
+    local container_name="nexus-test-runner"
+    local pytest_cmd="$*"
+    
+    # Start test container if needed
+    start_test_container
+    
+    print_info "Exekverar: python3 -m pytest $pytest_cmd"
+    
+    docker exec $container_name \
+        python3 -m pytest $pytest_cmd
+    
+    local exit_code=$?
+    
+    if [[ $exit_code -eq 0 ]]; then
+        print_success "Tester slutförda framgångsrikt!"
+    else
+        print_error "Tester misslyckades (exit code: $exit_code)"
+    fi
+    
+    return $exit_code
+}
+
+# Run all tests
+run_all_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail --html=report.html --self-contained-html
+}
+
+# Run health checks
+run_health_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m health --html=report.html --self-contained-html
+}
+
+# Run API tests (without GUI)
+run_api_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m api --html=report.html --self-contained-html
+}
+
+# Run GUI tests only
+run_gui_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m gui --html=report.html --self-contained-html
+}
+
+# Run K8s tests
+run_k8s_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m k8s --html=report.html --self-contained-html
+}
+
+# Run custom pytest command
+run_custom_tests() {
+    shift  # Ta bort 'run' från argumenten
+    exec_pytest -v --html=report.html --self-contained-html "$@"
+}
+
+# Stop test container
+stop_test_container() {
+    local container_name="nexus-test-runner"
+    
+    if docker ps --filter "name=$container_name" | grep -q $container_name; then
+        print_info "Stoppar test-container '$container_name'..."
+        docker stop $container_name
+        docker rm $container_name
+        print_success "Test-container stoppad!"
+    else
+        print_info "Test-container körs inte"
+    fi
 }
 
 # Clean up
 clean_test_artifacts() {
     print_info "Rensar test-artifakter..."
     
-    # Remove test containers
+    # Stop running test container
+    stop_test_container
+    
+    # Remove any remaining test containers
     docker ps -a --filter "ancestor=nexus-test:latest" -q | xargs -r docker rm -f
     
     # Remove test images
@@ -165,27 +275,40 @@ main() {
         "run")
             check_docker
             check_kind_cluster
-            run_tests "all"
+            run_custom_tests "$@"
             ;;
-        "run-unit")
+        "run-all")
             check_docker
             check_kind_cluster
-            run_tests "unit"
+            shift
+            run_all_tests "$@"
             ;;
-        "run-integration")
+        "run-health")
             check_docker
             check_kind_cluster
-            run_tests "integration"
+            shift
+            run_health_tests "$@"
             ;;
         "run-api")
             check_docker
             check_kind_cluster
-            run_tests "api"
+            shift
+            run_api_tests "$@"
             ;;
-        "run-slow")
+        "run-gui")
             check_docker
             check_kind_cluster
-            run_tests "slow"
+            shift
+            run_gui_tests "$@"
+            ;;
+        "run-k8s")
+            check_docker
+            check_kind_cluster
+            shift
+            run_k8s_tests "$@"
+            ;;
+        "stop")
+            stop_test_container
             ;;
         "build")
             check_docker

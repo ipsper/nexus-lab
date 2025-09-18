@@ -497,31 +497,51 @@ kind delete cluster --name nexus-cluster
 kubectl delete namespace nexus
 ```
 
-## Automatiserat skript
+## 📚 Dokumentation och Guider
 
-Projektet innehåller två kraftfulla skript för att hantera och felsöka systemet:
+Projektet innehåller omfattande dokumentation för alla komponenter:
 
-### Huvudskript
-- **[`scripts/run.sh`](scripts/run-README.md)** - Huvudhanteringsskript för installation, konfiguration och hantering
-- **[`scripts/k8s-debug.sh`](scripts/k8s-debug-README.md)** - Avancerat debug-skript för felsökning
+### 🎯 Huvudguider
+- **[📋 Scripts Guide](scripts/README.md)** - Översikt av alla scripts och verktyg
+- **[🔧 run.sh Guide](scripts/run-README.md)** - Huvudhanteringsskript för installation och konfiguration
+- **[🐛 k8s-debug.sh Guide](scripts/k8s-debug-README.md)** - Avancerat debug-skript för felsökning
+- **[🧪 Testsystem Guide](testning/README.md)** - Komplett guide för testsystemet
+
+### 🧪 Testsystem
+Projektet har ett omfattande testsystem med:
+- **Health checks** - Kontrollerar miljöns status
+- **API-tester** - Testar REST endpoints
+- **GUI-tester** - Playwright-baserade UI-tester  
+- **Integration-tester** - Testar samspelet mellan tjänster
+- **K8s-tester** - Kubernetes deployment-tester
+
+**➡️ [Läs hela testguiden](testning/README.md)** för detaljerad information om:
+- Hur man kör olika typer av tester
+- Docker exec arkitektur
+- Verbose mode och debugging
+- --to-the-end flaggor
+- Playwright GUI-testning
 
 ### Snabböversikt
 
-**Huvudkommandon:**
+**Snabbkommandon:**
 ```bash
-# Komplett setup
-./scripts/run.sh create
+# Miljöhantering
+./scripts/run.sh create                      # Komplett setup
+./scripts/run.sh delete                      # Ta bort allt
+./scripts/k8s-debug.sh full-debug           # Felsöka problem
 
-# Felsöka problem
-./scripts/k8s-debug.sh full-debug
-
-# Ta bort allt
-./scripts/run.sh delete
+# Testning
+./scripts/run-test.sh run-health             # Health checks
+./scripts/run-test.sh run-api                # API-tester (utan GUI)
+./scripts/run-test.sh run-gui                # GUI-tester
+./scripts/test.sh all                        # Alla tester
 ```
 
-**Detaljerad dokumentation:**
-- [run.sh README](scripts/run-README.md) - Komplett guide för huvudskriptet
-- [k8s-debug.sh README](scripts/k8s-debug-README.md) - Avancerad felsökningsguide
+**📖 Detaljerade guider:**
+- **[🔧 run.sh README](scripts/run-README.md)** - Komplett guide för huvudskriptet
+- **[🐛 k8s-debug.sh README](scripts/k8s-debug-README.md)** - Avancerad felsökningsguide  
+- **[🧪 Testsystem README](testning/README.md)** - Komplett testguide
 
 
 ### Skriptfunktioner:
