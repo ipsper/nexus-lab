@@ -34,26 +34,28 @@ def pytest_configure(config):
 @pytest.fixture(scope="session")
 def api_base_url() -> str:
     """Base URL for the FastAPI application via Kong Gateway"""
-    # Use host.docker.internal when running in Docker container
     import os
-    host = "host.docker.internal" if os.path.exists("/.dockerenv") else "localhost"
-    return f"http://{host}:8000/api"
+    host = os.getenv("TEST_HOST", "localhost")
+    port = os.getenv("TEST_PORT", "8000")
+    return f"http://{host}:{port}/api"
 
 
 @pytest.fixture(scope="session")
 def kong_base_url() -> str:
     """Base URL for Kong Gateway"""
     import os
-    host = "host.docker.internal" if os.path.exists("/.dockerenv") else "localhost"
-    return f"http://{host}:8000"
+    host = os.getenv("TEST_HOST", "localhost")
+    port = os.getenv("TEST_PORT", "8000")
+    return f"http://{host}:{port}"
 
 
 @pytest.fixture(scope="session")
 def nexus_base_url() -> str:
     """Base URL for Nexus Repository Manager via Kong Gateway"""
     import os
-    host = "host.docker.internal" if os.path.exists("/.dockerenv") else "localhost"
-    return f"http://{host}:8000/nexus"
+    host = os.getenv("TEST_HOST", "localhost")
+    port = os.getenv("TEST_PORT", "8000")
+    return f"http://{host}:{port}/nexus"
 
 
 @pytest.fixture(scope="session")

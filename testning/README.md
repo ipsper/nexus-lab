@@ -38,6 +38,36 @@ testning/
 └── README.md                       # Denna fil
 ```
 
+## ⚙️ Konfiguration
+
+### Miljövariabler
+Systemet kan konfigureras med följande miljövariabler:
+
+| Variabel | Beskrivning | Default |
+|----------|-------------|---------|
+| `TEST_HOST` | Host för tester | `localhost` |
+| `TEST_PORT` | Port för Kong Gateway | `8000` |
+| `KONG_ADMIN_PORT` | Port för Kong Admin API | `8001` |
+| `NEXUS_DIRECT_PORT` | Port för direkt Nexus-åtkomst | `8081` |
+
+### Exempel på konfiguration
+```bash
+# Standard (localhost:8000)
+./scripts/run-test.sh run-health
+
+# Testa mot annan host
+TEST_HOST=192.168.1.100 ./scripts/run-test.sh run-api
+
+# Anpassad port
+TEST_PORT=9000 ./scripts/run-test.sh run-gui
+
+# Kombinera flera variabler
+TEST_HOST=remote.server TEST_PORT=8080 ./scripts/run-test.sh run-all
+
+# Visa aktuell konfiguration (visas automatiskt vid container-start)
+./scripts/run-test.sh run-health  # Visar: TEST_HOST=localhost, TEST_PORT=8000, etc.
+```
+
 ## 🚀 Snabbstart
 
 ### 1. Kontrollera miljön först
@@ -251,19 +281,19 @@ Testerna använder en **persistent container** med `docker exec`:
 - **Snabbare:** Container startas en gång och återanvänds
 - **Bättre kontroll:** Direkta pytest-kommandon
 - **Enklare debugging:** Kan komma åt containern interaktivt
+- **Konfigurerbara URL:er:** Miljövariabler sätts automatiskt
 
 ### Docker-miljö
 
 Test-containern innehåller:
-- Ubuntu 22.04
+- Ubuntu 22.04 (bättre Playwright-stöd)
 - Python 3.10
 - Playwright browsers (Chromium, Firefox, Webkit)
 - Alla test-dependencies
 - Persistent `/app` volume för snabb uppdatering
+- Miljövariabler för URL-konfiguration (TEST_HOST, TEST_PORT, etc.)
 
-## ⚙️ Konfiguration
-
-### Environment Variables
+### Environment Variables för debugging
 
 ```bash
 # Playwright i synligt läge (för debugging)
