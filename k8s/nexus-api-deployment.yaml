@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: nexus-api
-        image: nexus-api:latest
+        image: nexus-repository-api:latest
         imagePullPolicy: Never
         ports:
         - containerPort: 3000
@@ -35,6 +35,8 @@ spec:
           value: "false"
         - name: LOG_LEVEL
           value: "info"
+        - name: PYTHONUNBUFFERED
+          value: "1"
         resources:
           requests:
             memory: "256Mi"

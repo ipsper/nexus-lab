@@ -26,6 +26,12 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Build-pip specific build artifacts
+build-pip/dist/
+build-pip/build/
+build-pip/*.egg-info/
+build-pip/.pytest_cache/
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -143,6 +149,20 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Build-pip virtual environments
+build-pip/venv/
+build-pip/ENV/
+build-pip/env/
+build-pip/.env
+build-pip/.venv
+
+# All virtual environments in subdirectories
+**/venv/
+**/ENV/
+**/env/
+**/.env
+**/.venv
 
 # Spyder project settings
 .spyderproject
