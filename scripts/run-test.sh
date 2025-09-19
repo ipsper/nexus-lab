@@ -42,7 +42,10 @@ show_help() {
     echo "  run-api             Kör API-tester utan GUI (stannar vid första fel)"
     echo "  run-gui             Kör GUI-tester (stannar vid första fel)"
     echo "  run-k8s             Kör K8s-tester (stannar vid första fel)"
-    echo "  build               Bygg test-container"
+    echo "  build               Bygg test-container (utan cache)"
+    echo "  build --with-cache  Bygg test-container med cache"
+    echo "  rebuild             Stoppa och bygg om test-container (utan cache)"
+    echo "  rebuild --with-cache Stoppa och bygg om test-container med cache"
     echo "  stop                Stoppa test-container"
     echo "  clean               Rensa test-containers och images"
     echo "  logs                Visa test-logs"
@@ -62,6 +65,8 @@ show_help() {
     echo "  $0 run-gui --to-the-end        # Kör GUI-tester (fortsätt vid fel)"
     echo "  $0 run -k test_health          # Kör custom pytest-kommando"
     echo "  TEST_HOST=192.168.1.100 $0 run-api  # Kör API-tester mot annan host"
+    echo "  $0 build --with-cache          # Bygg test-container med cache"
+    echo "  $0 rebuild                     # Stoppa och bygg om test-container"
     echo "  $0 stop                        # Stoppa test-container"
 }
 
@@ -84,10 +89,20 @@ check_kind_cluster() {
 
 # Build test container
 build_test_container() {
+    local no_cache="--no-cache"  # Default: no cache
+    
+    # Check for --with-cache argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--with-cache" ]]; then
+            no_cache=""
+            break
+        fi
+    done
+    
     print_info "Bygger test-container..."
     
     cd testning
-    docker build -t nexus-test:latest .
+    docker build $no_cache -t nexus-test:latest .
     cd ..
     
     print_success "Test-container byggd!"
@@ -334,7 +349,14 @@ main() {
             ;;
         "build")
             check_docker
-            build_test_container
+            shift
+            build_test_container "$@"
+            ;;
+        "rebuild")
+            check_docker
+            shift
+            stop_test_container
+            build_test_container "$@"
             ;;
         "clean")
             check_docker

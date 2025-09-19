@@ -8,18 +8,22 @@ Projektet har omstruktureras för att fungera som ett pip-paket:
 
 ```
 nexus-lab/
-├── nexus_repository_api/          # Huvudpaket
-│   ├── __init__.py               # Paket-initialisering
-│   ├── main.py                   # FastAPI-applikation
-│   ├── models.py                 # Pydantic-modeller
-│   └── cli.py                    # Kommandorad-interface
-├── tests/                        # Tester
-│   ├── __init__.py
-│   └── test_main.py
-├── pyproject.toml               # Modern Python-paketkonfiguration
-├── MANIFEST.in                  # Filer att inkludera i paketet
-├── LICENSE                      # MIT-licens
-└── README_to_pip.md            # Denna guide
+├── scripts/
+│   └── build-pip.sh             # Build-skript (körs från root)
+├── build-pip/                   # Pip-paket katalog
+│   ├── nexus_repository_api/    # Huvudpaket
+│   │   ├── __init__.py         # Paket-initialisering
+│   │   ├── main.py             # FastAPI-applikation
+│   │   ├── models.py           # Pydantic-modeller
+│   │   └── cli.py              # Kommandorad-interface
+│   ├── tests/                  # Tester
+│   │   ├── __init__.py
+│   │   └── test_main.py
+│   ├── pyproject.toml          # Modern Python-paketkonfiguration
+│   ├── MANIFEST.in             # Filer att inkludera i paketet
+│   ├── LICENSE                 # MIT-licens
+│   └── README.md               # Denna guide
+└── ...
 ```
 
 ## 🔧 Förberedelser
@@ -30,24 +34,27 @@ Vi har skapat ett `build-pip.sh` skript som hanterar allt automatiskt:
 
 ```bash
 # Gör skriptet körbart
-chmod +x build-pip.sh
+chmod +x scripts/build-pip.sh
 
 # Visa hjälp
-./build-pip.sh help
+./scripts/build-pip.sh help
 
 # Bygg paketet (skapar venv automatiskt)
-./build-pip.sh build
+./scripts/build-pip.sh build
 
 # Bygg och testa
-./build-pip.sh build test
+./scripts/build-pip.sh build test
 
 # Bygg, testa och installera lokalt
-./build-pip.sh build test install
+./scripts/build-pip.sh build test install
 ```
 
 ### 2. Manuell installation (alternativ)
 
 ```bash
+# Gå till build-pip mappen
+cd build-pip
+
 # Installera build-verktyg
 pip install build twine
 
@@ -59,10 +66,10 @@ pip install -e ".[dev]"
 
 ```bash
 # Visa paketstruktur
-tree nexus_repository_api/
+tree build-pip/nexus_repository_api/
 
 # Kontrollera att alla filer finns
-ls -la nexus_repository_api/
+ls -la build-pip/nexus_repository_api/
 ```
 
 ## 🏗️ Bygga paketet
@@ -71,21 +78,24 @@ ls -la nexus_repository_api/
 
 ```bash
 # Bygg paketet med virtuell miljö
-./build-pip.sh build
+./scripts/build-pip.sh build
 
 # Bygg och kör tester
-./build-pip.sh build test
+./scripts/build-pip.sh build test
 
 # Bygg, testa och installera lokalt
-./build-pip.sh build test install
+./scripts/build-pip.sh build test install
 
 # Rensa build-artefakter
-./build-pip.sh clean
+./scripts/build-pip.sh clean
 ```
 
 ### 2. Manuell build (Avancerat)
 
 ```bash
+# Gå till build-pip mappen
+cd build-pip
+
 # Rensa gamla builds (om de finns)
 rm -rf dist/ build/ *.egg-info/
 
@@ -115,6 +125,9 @@ python -m zipfile -l dist/nexus_repository_api-1.0.0-py3-none-any.whl
 ### 1. Installera från lokal fil
 
 ```bash
+# Gå till build-pip mappen
+cd build-pip
+
 # Installera från wheel-fil
 pip install dist/nexus_repository_api-1.0.0-py3-none-any.whl
 
