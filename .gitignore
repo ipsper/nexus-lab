@@ -31,6 +31,7 @@ build-pip/dist/
 build-pip/build/
 build-pip/*.egg-info/
 build-pip/.pytest_cache/
+build-pip/.pypirc.tmp
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -213,6 +214,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Credentials filer
+mina-credentials.txt
+**/mina-credentials.txt
 
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to

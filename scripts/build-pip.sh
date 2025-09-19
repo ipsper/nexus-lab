@@ -48,12 +48,14 @@ show_help() {
     echo "  uninstall         Avinstallera paketet"
     echo "  check             Kontrollera paketets innehåll"
     echo "  docker            Bygg Docker-image med pip-paketet"
+    echo "  upload            Ladda upp paketet till privat PyPI-repository"
     echo "  help              Visa denna hjälp"
     echo ""
     echo "Exempel:"
     echo "  $0 build"
     echo "  $0 build test"
     echo "  $0 clean build install"
+    echo "  $0 build upload"
 }
 
 # Kontrollera om Python 3 är tillgängligt
@@ -245,6 +247,134 @@ build_docker() {
     fi
 }
 
+# Ladda upp paketet till privat PyPI-repository
+upload_package() {
+    print_info "Laddar upp paketet till privat PyPI-repository..."
+    
+    # Kontrollera att wheel-paketet finns
+    if [ ! -f "dist/nexus_repository_api-1.0.0-py3-none-any.whl" ]; then
+        print_error "Wheel-paketet finns inte. Bygg paketet först med 'build'"
+        exit 1
+    fi
+    
+    # Kontrollera att twine är installerat
+    if ! command -v twine &> /dev/null; then
+        print_info "Installerar twine för upload..."
+        if [ -d "venv" ]; then
+            source venv/bin/activate
+            pip install twine
+        else
+            pip3 install twine
+        fi
+    fi
+    
+    # Repository URL
+    REPO_URL="https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi"
+    
+    print_info "Repository URL: $REPO_URL"
+    
+    # Kontrollera om .pypirc finns eller om vi kan skapa en från credentials
+    if [ -f ".pypirc" ] && ! grep -q "din_gitlab_username_här" .pypirc && ! grep -q "din_gitlab_token_här" .pypirc; then
+        print_success "Hittade .pypirc konfigurationsfil med giltiga credentials!"
+        print_info "Använder autentisering från .pypirc"
+    elif [ -f "../mina-credentials.txt" ]; then
+        print_info "Hittade mina-credentials.txt fil!"
+        print_info "Skapar .pypirc från credentials..."
+        
+        # Läs credentials från filen
+        source ../mina-credentials.txt
+        
+        # Kontrollera att credentials är satta
+        if [ -z "$GITLAB_USERNAME" ] || [ -z "$GITLAB_TOKEN" ] || [ "$GITLAB_USERNAME" = "din_gitlab_username_här" ] || [ "$GITLAB_TOKEN" = "din_gitlab_token_här" ]; then
+            print_error "mina-credentials.txt innehåller inte giltiga credentials!"
+            print_info "Uppdatera filen med dina riktiga GitLab uppgifter:"
+            print_info "  GITLAB_USERNAME=din_riktiga_username"
+            print_info "  GITLAB_TOKEN=din_riktiga_token"
+            exit 1
+        fi
+        
+        # Skapa temporär .pypirc fil
+        cat > .pypirc.tmp << EOF
+[distutils]
+index-servers = gitlab
+
+[gitlab]
+repository = https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi/simple
+username = $GITLAB_USERNAME
+password = $GITLAB_TOKEN
+EOF
+        
+        print_success "Skapade temporär .pypirc med dina credentials!"
+    else
+        print_warning "Ingen .pypirc eller mina-credentials.txt fil hittades!"
+        print_info ""
+        print_info "Du kan antingen:"
+        print_info "1. Skapa en mina-credentials.txt fil med dina credentials (rekommenderat)"
+        print_info "2. Skapa en .pypirc fil direkt"
+        print_info "3. Använda dina GitLab credentials när twine frågar efter dem"
+        print_info "4. Ställa in environment variabler:"
+        print_info "   export TWINE_USERNAME=din_gitlab_username"
+        print_info "   export TWINE_PASSWORD=din_gitlab_token"
+        print_info ""
+        print_info "För att skapa en GitLab access token:"
+        print_info "  1. Gå till GitLab > Settings > Access Tokens"
+        print_info "  2. Skapa en token med 'write_repository' scope"
+        print_info "  3. Använd token som lösenord i twine"
+        print_info ""
+    fi
+    
+    print_info "Uploading packages..."
+    
+    # Ladda upp med twine
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+        if [ -f ".pypirc.tmp" ]; then
+            # Använd temporär .pypirc fil
+            twine upload --config-file .pypirc.tmp --repository gitlab --verbose dist/*
+        elif [ -f ".pypirc" ]; then
+            # Använd repository-namn från .pypirc
+            twine upload --repository gitlab --verbose dist/*
+        else
+            # Använd repository URL direkt
+            twine upload --repository-url "$REPO_URL" --verbose dist/*
+        fi
+    else
+        if [ -f ".pypirc.tmp" ]; then
+            # Använd temporär .pypirc fil
+            twine upload --config-file .pypirc.tmp --repository gitlab --verbose dist/*
+        elif [ -f ".pypirc" ]; then
+            # Använd repository-namn från .pypirc
+            twine upload --repository gitlab --verbose dist/*
+        else
+            # Använd repository URL direkt
+            twine upload --repository-url "$REPO_URL" --verbose dist/*
+        fi
+    fi
+    
+    # Spara upload-resultatet
+    upload_result=$?
+    
+    # Rensa upp temporär .pypirc fil
+    if [ -f ".pypirc.tmp" ]; then
+        rm -f .pypirc.tmp
+        print_info "Rensade temporär .pypirc fil"
+    fi
+    
+    if [ $upload_result -eq 0 ]; then
+        print_success "Paketet har laddats upp till privat PyPI-repository!"
+        
+        print_info "För att installera från privat repository:"
+        print_info "  pip install --index-url $REPO_URL nexus-repository-api"
+        print_info ""
+        print_info "För att använda som extra index:"
+        print_info "  pip install --extra-index-url $REPO_URL nexus-repository-api"
+    else
+        print_error "Upload misslyckades. Kontrollera autentisering och nätverksanslutning."
+        print_info "Tips: Kontrollera att dina GitLab credentials är korrekta"
+        exit 1
+    fi
+}
+
 # Huvudfunktion
 main() {
     print_info "🚀 Nexus Repository API - Pip Package Builder"
@@ -276,6 +406,9 @@ main() {
             ;;
         "docker")
             build_docker
+            ;;
+        "upload")
+            upload_package
             ;;
         "help"|"-h"|"--help")
             show_help
