@@ -19,6 +19,28 @@ Nexus Repository Manager är en kraftfull artefakt-hantering som stöder:
 - Minst 4GB RAM tillgängligt
 - Minst 20GB ledigt diskutrymme
 
+## 📦 Pip-paket Distribution
+
+FastAPI-applikationen kan också distribueras som ett pip-paket för enklare installation och användning:
+
+👉 **[Se detaljerad guide: build-pip/README.md](build-pip/README.md)**
+
+### Snabbstart med pip-paket
+
+```bash
+# Bygg pip-paketet
+./scripts/build-pip.sh build
+
+# Bygg Docker-image med pip-paketet
+./scripts/build-pip.sh docker
+
+# Installera lokalt för testning
+./scripts/build-pip.sh install
+
+# Starta applikationen
+nexus-api --port 3000
+```
+
 ## Snabbstart med Kind
 
 ### Alternativ 1: Komplett setup (Rekommenderat)
@@ -579,6 +601,7 @@ TEST_PORT=9000 ./scripts/run-test.sh run-gui             # Annan port
 - [Officiell Nexus-dokumentation](https://help.sonatype.com/repomanager3)
 - [Docker Hub - Nexus3](https://hub.docker.com/r/sonatype/nexus3/)
 - [Sonatype Community](https://community.sonatype.com/)
+- [Pip-paket Guide](build-pip/README.md) - Detaljerad guide för att bygga och distribuera FastAPI-appen som pip-paket
 
 ## Licens
 

@@ -21,7 +21,24 @@ Det primära skriptet för att installera, konfigurera och hantera hela systemet
 
 **Se:** [run.sh README](run-README.md) för detaljerad dokumentation.
 
-### 2. `k8s-debug.sh` - Debug och felsökning
+### 2. `build-pip.sh` - Pip-paket Build-skript
+Bygger och hanterar FastAPI-applikationen som ett pip-paket.
+
+**Användning:**
+```bash
+./scripts/build-pip.sh [KOMMANDO]
+```
+
+**Huvudkommandon:**
+- `build` - Bygg pip-paketet (standard)
+- `docker` - Bygg Docker-image med pip-paketet
+- `test` - Kör tester
+- `install` - Installera paketet lokalt
+- `clean` - Rensa build-artefakter
+
+**Se:** [build-pip/README.md](../build-pip/README.md) för detaljerad dokumentation.
+
+### 3. `k8s-debug.sh` - Debug och felsökning
 Avancerat debug-skript för att felsöka Kubernetes-problem steg för steg.
 
 **Användning:**
@@ -53,6 +70,18 @@ chmod +x scripts/*.sh
 
 # Ta bort allt när klar
 ./scripts/run.sh delete
+```
+
+### Pip-paket setup:
+```bash
+# Bygg pip-paketet
+./scripts/build-pip.sh build
+
+# Bygg Docker-image med pip-paketet
+./scripts/build-pip.sh docker
+
+# Testa paketet
+./scripts/build-pip.sh test
 ```
 
 ### Steg-för-steg:
