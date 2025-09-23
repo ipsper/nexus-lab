@@ -1,8 +1,8 @@
 # Nexus Repository API - Docker Image med Pip-paket
-# Detta Dockerfile använder det byggda pip-paketet istället för att kopiera koden
+# Detta Dockerfile använder det lokalt installerade pip-paketet
 
-# Använd Python 3.11 slim image
-FROM python:3.11-slim
+# Använd Python 3.13 slim image (samma som build-miljön)
+FROM python:3.13-slim
 
 # Sätt arbetskatalog
 WORKDIR /app
@@ -12,11 +12,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Kopiera det byggda pip-paketet
+# Kopiera det byggda pip-paketet från local-install output
 COPY build-pip/dist/nexus_repository_api-1.0.0-py3-none-any.whl .
 
-# Installera pip-paketet
-RUN pip install --no-cache-dir nexus_repository_api-1.0.0-py3-none-any.whl
+# Uppdatera pip till senaste version och installera pip-paketet
+RUN pip install --upgrade pip==25.2 && pip install --no-cache-dir nexus_repository_api-1.0.0-py3-none-any.whl
 
 # Exponera port 3000
 EXPOSE 3000

@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --upgrade pip==25.2 && pip3 install --no-cache-dir -r requirements.txt
 
 
 # Install Playwright browsers

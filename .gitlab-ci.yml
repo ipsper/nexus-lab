@@ -1,0 +1,67 @@
+# GitLab CI/CD Pipeline för Nexus Lab
+# Bygger och laddar upp pip-paketet till GitLab Package Registry
+
+stages:
+  - build
+  - upload
+
+variables:
+  PACKAGE_NAME: "nexus-lab"
+  GITLAB_PROJECT_ID: "10"
+
+# Bygg pip-paketet
+build_package:
+  stage: build
+  image: python:3.13
+  script:
+    - cd build-pip
+    - pip install --upgrade pip==25.2
+    - pip install build twine
+    - python -m build
+    - ls -la dist/
+  artifacts:
+    paths:
+      - build-pip/dist/
+    expire_in: 1 hour
+
+# Ladda upp till GitLab Package Registry
+upload_package:
+  stage: upload
+  image: python:3.13
+  dependencies:
+    - build_package
+  variables:
+    TWINE_USERNAME: "__token__"
+    TWINE_PASSWORD: "${CI_JOB_TOKEN}"
+  script:
+    - cd build-pip
+    - pip install --upgrade pip==25.2
+    - pip install twine
+    - echo "Uploading to GitLab Package Registry..."
+    - echo "Project ID: ${CI_PROJECT_ID}"
+    - echo "Package Name: ${PACKAGE_NAME}"
+    - echo "Repository URL: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"
+    - python -m twine upload --repository-url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi" --verbose dist/*
+  only:
+    - main
+    - master
+    - tags
+
+# Alternativ: Använd vårt skript istället
+upload_with_script:
+  stage: upload
+  image: python:3.13
+  dependencies:
+    - build_package
+  variables:
+    PACKAGE_NAME: "nexus-lab"
+    GITLAB_PROJECT_ID: "10"
+    TWINE_USERNAME: "__token__"
+    TWINE_PASSWORD: "${CI_JOB_TOKEN}"
+  script:
+    - ./scripts/build-pip.sh upload
+  only:
+    - main
+    - master
+    - tags
+  when: manual  # Kör manuellt för att testa

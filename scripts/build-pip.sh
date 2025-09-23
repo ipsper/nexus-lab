@@ -10,6 +10,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT/build-pip"
 
+# GitLab projekt ID (kan överridas med environment variabel)
+GITLAB_PROJECT_ID="${GITLAB_PROJECT_ID:-10}"
+
+# Paketnamn (kan överridas med environment variabel)
+PACKAGE_NAME="${PACKAGE_NAME:-nexus-lab}"
+
 # Färger för output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -47,15 +53,40 @@ show_help() {
     echo "  install           Installera paketet lokalt för testning"
     echo "  uninstall         Avinstallera paketet"
     echo "  check             Kontrollera paketets innehåll"
-    echo "  docker            Bygg Docker-image med pip-paketet"
+    echo "  docker            Bygg Docker-image med pip-paketet (lokal)"
+    echo "  docker-gitlab     Bygg Docker-image för GitLab CI/CD"
     echo "  upload            Ladda upp paketet till privat PyPI-repository"
+    echo "  upload-testpypi   Ladda upp paketet till TestPyPI för testning"
+    echo "  local-install     Installera paketet lokalt för testning"
     echo "  help              Visa denna hjälp"
+    echo ""
+    echo "Environment variabler:"
+    echo "  GITLAB_PROJECT_ID GitLab projekt ID (standard: 10)"
+    echo "  PACKAGE_NAME      Paketnamn (standard: nexus-lab)"
+    echo "  TWINE_USERNAME    GitLab användarnamn för upload"
+    echo "  TWINE_PASSWORD    GitLab access token för upload"
+    echo ""
+    echo "GitLab CI/CD variabler (automatiskt satta i CI):"
+    echo "  CI_API_V4_URL     GitLab API URL (automatiskt satt)"
+    echo "  CI_PROJECT_ID     GitLab projekt ID (automatiskt satt)"
     echo ""
     echo "Exempel:"
     echo "  $0 build"
     echo "  $0 build test"
     echo "  $0 clean build install"
     echo "  $0 build upload"
+    echo "  $0 build docker"
+    echo "  $0 build docker-gitlab"
+    echo "  $0 upload-testpypi"
+    echo "  GITLAB_PROJECT_ID=123 $0 upload"
+    echo "  PACKAGE_NAME=my-package $0 upload"
+    echo "  TWINE_USERNAME=user TWINE_PASSWORD=token $0 upload"
+    echo ""
+    echo "GitLab CI/CD pipeline exempel:"
+    echo "  script:"
+    echo "    - pip install build twine"
+    echo "    - python -m build"
+    echo "    - python -m twine upload --repository-url \${CI_API_V4_URL}/projects/\${CI_PROJECT_ID}/packages/pypi --verbose dist/*"
 }
 
 # Kontrollera om Python 3 är tillgängligt
@@ -98,7 +129,7 @@ activate_venv() {
 # Installera build-verktyg
 install_build_tools() {
     print_info "Installerar build-verktyg..."
-    pip install --upgrade pip
+    pip install --upgrade pip==25.2
     pip install build twine
     print_success "Build-verktyg installerade"
 }
@@ -163,6 +194,35 @@ run_tests() {
     print_success "Tester körda framgångsrikt!"
 }
 
+# Installera paketet lokalt för testning
+local_install() {
+    print_info "Installerar paketet lokalt för testning..."
+    
+    if [ ! -d "venv" ]; then
+        print_error "Virtuell miljö finns inte. Kör 'build' först."
+        exit 1
+    fi
+    
+    source venv/bin/activate
+    
+    if [ -f "dist/nexus_repository_api-1.0.0-py3-none-any.whl" ]; then
+        print_info "Installerar från wheel-paket..."
+        pip install dist/nexus_repository_api-1.0.0-py3-none-any.whl --force-reinstall
+        
+        print_success "Paketet installerat lokalt!"
+        
+        print_info "Testa att kommandot fungerar:"
+        echo "  nexus-api --help"
+        echo "  nexus-api --version"
+        
+        print_info "För att avinstallera:"
+        echo "  pip uninstall nexus-repository-api -y"
+    else
+        print_error "Wheel-paketet finns inte. Bygg paketet först med 'build'"
+        exit 1
+    fi
+}
+
 # Installera paketet lokalt
 install_package() {
     print_info "Installerar paketet lokalt..."
@@ -218,6 +278,38 @@ check_package() {
     fi
 }
 
+# Bygg Docker-image för GitLab CI/CD
+build_docker_gitlab() {
+    print_info "Bygger Docker-image för GitLab CI/CD..."
+    
+    # Kontrollera att wheel-paketet finns
+    if [ ! -f "dist/nexus_repository_api-1.0.0-py3-none-any.whl" ]; then
+        print_error "Wheel-paketet finns inte. Bygg paketet först med 'build'"
+        exit 1
+    fi
+    
+    # Bygg Docker-image med GitLab Dockerfile
+    docker build -f "$PROJECT_ROOT/Dockerfile.gitlab" -t nexus-lab-gitlab:latest "$PROJECT_ROOT"
+    
+    if [ $? -eq 0 ]; then
+        print_success "GitLab Docker-image byggd: nexus-lab-gitlab:latest"
+        
+        # Visa image-information
+        print_info "Docker-image information:"
+        docker images nexus-lab-gitlab:latest
+        
+        print_info "För att testa GitLab Docker-image:"
+        print_info "  docker run -p 3000:3000 nexus-lab-gitlab:latest"
+        print_info "  curl http://localhost:3000/health"
+        
+        print_info "För att testa upload i GitLab CI/CD miljö:"
+        print_info "  docker run -e CI_PROJECT_ID=10 -e TWINE_USERNAME=__token__ -e TWINE_PASSWORD=your_token nexus-lab-gitlab:latest /app/upload.sh"
+    else
+        print_error "GitLab Docker-image kunde inte byggas"
+        exit 1
+    fi
+}
+
 # Bygg Docker-image
 build_docker() {
     print_info "Bygger Docker-image med pip-paketet..."
@@ -247,6 +339,55 @@ build_docker() {
     fi
 }
 
+# Ladda upp paketet till TestPyPI för testning
+upload_testpypi() {
+    print_info "Laddar upp paketet till TestPyPI för testning..."
+    
+    # Kontrollera att wheel-paketet finns
+    if [ ! -f "dist/nexus_repository_api-1.0.0-py3-none-any.whl" ]; then
+        print_error "Wheel-paketet finns inte. Bygg paketet först med 'build'"
+        exit 1
+    fi
+    
+    # Kontrollera att twine är installerat
+    if ! command -v twine &> /dev/null; then
+        print_info "Installerar twine för upload..."
+        if [ -d "venv" ]; then
+            source venv/bin/activate
+            pip install twine
+        else
+            pip3 install twine
+        fi
+    fi
+    
+    print_info "Uploading to TestPyPI..."
+    print_info "Du behöver skapa ett konto på https://test.pypi.org/"
+    print_info "och skapa en API token för att ladda upp"
+    
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+    fi
+    
+    # Ladda upp till TestPyPI
+    twine upload --repository testpypi --verbose dist/*
+    
+    upload_result=$?
+    
+    if [ $upload_result -eq 0 ]; then
+        print_success "Paketet har laddats upp till TestPyPI!"
+        
+        print_info "För att installera från TestPyPI:"
+        print_info "  pip install --index-url https://test.pypi.org/simple/ nexus-repository-api"
+        print_info ""
+        print_info "För att använda som extra index:"
+        print_info "  pip install --extra-index-url https://test.pypi.org/simple/ nexus-repository-api"
+    else
+        print_error "Upload till TestPyPI misslyckades."
+        print_info "Tips: Kontrollera att du har rätt TestPyPI credentials"
+        exit 1
+    fi
+}
+
 # Ladda upp paketet till privat PyPI-repository
 upload_package() {
     print_info "Laddar upp paketet till privat PyPI-repository..."
@@ -269,14 +410,29 @@ upload_package() {
     fi
     
     # Repository URL
-    REPO_URL="https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi"
+    if [ -n "$CI_API_V4_URL" ] && [ -n "$CI_PROJECT_ID" ]; then
+        # GitLab CI/CD environment - använd CI variabler
+        REPO_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"
+        print_info "Using GitLab CI/CD environment variables"
+    else
+        # Lokal utveckling - använd hårdkodad URL
+        REPO_URL="https://git.idp.ip-solutions.se/api/v4/projects/${GITLAB_PROJECT_ID}/packages/pypi"
+    fi
     
     print_info "Repository URL: $REPO_URL"
     
+    # Kontrollera om environment variabler finns (GitLab CI/CD stil)
+    if [ -n "$TWINE_USERNAME" ] && [ -n "$TWINE_PASSWORD" ]; then
+        print_success "Hittade TWINE environment variabler!"
+        print_info "Använder TWINE_USERNAME och TWINE_PASSWORD"
+        print_info "För GitLab Package Registry använd användarnamn som TWINE_USERNAME"
+        print_info "och access token som TWINE_PASSWORD"
+        USE_ENV_VARS=true
     # Kontrollera om .pypirc finns eller om vi kan skapa en från credentials
-    if [ -f ".pypirc" ] && ! grep -q "din_gitlab_username_här" .pypirc && ! grep -q "din_gitlab_token_här" .pypirc; then
+    elif [ -f ".pypirc" ] && ! grep -q "din_gitlab_username_här" .pypirc && ! grep -q "din_gitlab_token_här" .pypirc; then
         print_success "Hittade .pypirc konfigurationsfil med giltiga credentials!"
         print_info "Använder autentisering från .pypirc"
+        USE_ENV_VARS=false
     elif [ -f "../mina-credentials.txt" ]; then
         print_info "Hittade mina-credentials.txt fil!"
         print_info "Skapar .pypirc från credentials..."
@@ -299,7 +455,7 @@ upload_package() {
 index-servers = gitlab
 
 [gitlab]
-repository = https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi/simple
+repository = https://git.idp.ip-solutions.se/api/v4/projects/${GITLAB_PROJECT_ID}/packages/pypi/simple
 username = $GITLAB_USERNAME
 password = $GITLAB_TOKEN
 EOF
@@ -325,34 +481,84 @@ EOF
     
     print_info "Uploading packages..."
     
+    # Debug-information
+    print_info "=== DEBUG INFORMATION ==="
+    print_info "GitLab Project ID: $GITLAB_PROJECT_ID"
+    print_info "Package Name: $PACKAGE_NAME"
+    print_info "Repository URL: $REPO_URL"
+    print_info "Working directory: $(pwd)"
+    print_info "Dist files:"
+    ls -la dist/
+    print_info "Virtual environment exists: $([ -d "venv" ] && echo "Yes" || echo "No")"
+    print_info "Environment variables:"
+    [ -n "$TWINE_USERNAME" ] && print_info "  TWINE_USERNAME: Set" || print_info "  TWINE_USERNAME: Not set"
+    [ -n "$TWINE_PASSWORD" ] && print_info "  TWINE_PASSWORD: Set" || print_info "  TWINE_PASSWORD: Not set"
+    [ -n "$CI_API_V4_URL" ] && print_info "  CI_API_V4_URL: Set" || print_info "  CI_API_V4_URL: Not set"
+    [ -n "$CI_PROJECT_ID" ] && print_info "  CI_PROJECT_ID: Set" || print_info "  CI_PROJECT_ID: Not set"
+    print_info "Config files:"
+    [ -f ".pypirc" ] && print_info "  .pypirc: $(wc -l < .pypirc) lines" || print_info "  .pypirc: Not found"
+    [ -f ".pypirc.tmp" ] && print_info "  .pypirc.tmp: $(wc -l < .pypirc.tmp) lines" || print_info "  .pypirc.tmp: Not found"
+    
+    # Testa anslutning först
+    print_info "Testing connection to repository..."
+    if curl -s -I "$REPO_URL" > /dev/null 2>&1; then
+        print_success "Repository URL is reachable"
+    else
+        print_warning "Repository URL might not be reachable"
+        print_info "Trying alternative URL formats..."
+        ALT_URL1="https://git.idp.ip-solutions.se/api/v4/projects/${GITLAB_PROJECT_ID}/packages/pypi/simple"
+        ALT_URL2="https://git.idp.ip-solutions.se/api/v4/projects/${GITLAB_PROJECT_ID}/packages/pypi/simple/nexus_repository_api"
+        
+        if curl -s -I "$ALT_URL1" > /dev/null 2>&1; then
+            print_success "Alternative URL 1 is reachable: $ALT_URL1"
+        else
+            print_warning "Alternative URL 1 not reachable: $ALT_URL1"
+        fi
+        
+        if curl -s -I "$ALT_URL2" > /dev/null 2>&1; then
+            print_success "Alternative URL 2 is reachable: $ALT_URL2"
+        else
+            print_warning "Alternative URL 2 not reachable: $ALT_URL2"
+        fi
+    fi
+    
+    print_info "=== END DEBUG ==="
+    
     # Ladda upp med twine
     if [ -d "venv" ]; then
         source venv/bin/activate
-        if [ -f ".pypirc.tmp" ]; then
-            # Använd temporär .pypirc fil
-            twine upload --config-file .pypirc.tmp --repository gitlab --verbose dist/*
-        elif [ -f ".pypirc" ]; then
-            # Använd repository-namn från .pypirc
-            twine upload --repository gitlab --verbose dist/*
-        else
-            # Använd repository URL direkt
-            twine upload --repository-url "$REPO_URL" --verbose dist/*
-        fi
+        print_info "Using virtual environment"
     else
-        if [ -f ".pypirc.tmp" ]; then
-            # Använd temporär .pypirc fil
-            twine upload --config-file .pypirc.tmp --repository gitlab --verbose dist/*
-        elif [ -f ".pypirc" ]; then
-            # Använd repository-namn från .pypirc
-            twine upload --repository gitlab --verbose dist/*
-        else
-            # Använd repository URL direkt
-            twine upload --repository-url "$REPO_URL" --verbose dist/*
-        fi
+        print_info "No virtual environment, using system Python"
+    fi
+    
+    # Välj upload-metod baserat på tillgängliga credentials
+    if [ "$USE_ENV_VARS" = true ]; then
+        print_info "Using environment variables for authentication"
+        print_info "TWINE_USERNAME: $TWINE_USERNAME"
+        print_info "TWINE_PASSWORD: [HIDDEN]"
+        twine upload --non-interactive --repository-url "$REPO_URL" --username "$TWINE_USERNAME" --password "$TWINE_PASSWORD" --verbose dist/*
+    elif [ -f ".pypirc.tmp" ]; then
+        print_info "Using temporary .pypirc file"
+        print_info "Config file contents:"
+        cat .pypirc.tmp
+        twine upload --non-interactive --config-file .pypirc.tmp --repository gitlab --verbose dist/*
+    elif [ -f ".pypirc" ]; then
+        print_info "Using existing .pypirc file"
+        print_info "Config file contents:"
+        cat .pypirc
+        twine upload --non-interactive --repository gitlab --verbose dist/*
+    else
+        print_info "Using direct repository URL"
+        twine upload --non-interactive --repository-url "$REPO_URL" --verbose dist/*
     fi
     
     # Spara upload-resultatet
     upload_result=$?
+    
+    print_info "=== UPLOAD RESULT DEBUG ==="
+    print_info "Upload exit code: $upload_result"
+    print_info "Last command status: $?"
     
     # Rensa upp temporär .pypirc fil
     if [ -f ".pypirc.tmp" ]; then
@@ -370,7 +576,18 @@ EOF
         print_info "  pip install --extra-index-url $REPO_URL nexus-repository-api"
     else
         print_error "Upload misslyckades. Kontrollera autentisering och nätverksanslutning."
-        print_info "Tips: Kontrollera att dina GitLab credentials är korrekta"
+        print_info "=== TROUBLESHOOTING TIPS ==="
+        print_info "1. Kontrollera att GitLab credentials är korrekta"
+        print_info "2. Verifiera att PyPI-paketet är aktiverat för projektet (ID: $GITLAB_PROJECT_ID)"
+        print_info "3. Kontrollera att du har rätt behörigheter (write_repository)"
+        print_info "4. Testa repository URL:en manuellt:"
+        print_info "   curl -I $REPO_URL"
+        print_info "5. Kontrollera GitLab project settings för Package Registry"
+        print_info "6. Kontrollera att GITLAB_PROJECT_ID är korrekt:"
+        print_info "   GITLAB_PROJECT_ID=123 $0 upload"
+        print_info "7. Kontrollera att PACKAGE_NAME är korrekt:"
+        print_info "   PACKAGE_NAME=my-package $0 upload"
+        print_info "=== END TROUBLESHOOTING ==="
         exit 1
     fi
 }
@@ -407,8 +624,17 @@ main() {
         "docker")
             build_docker
             ;;
+        "docker-gitlab")
+            build_docker_gitlab
+            ;;
         "upload")
             upload_package
+            ;;
+        "upload-testpypi")
+            upload_testpypi
+            ;;
+        "local-install")
+            local_install
             ;;
         "help"|"-h"|"--help")
             show_help

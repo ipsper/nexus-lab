@@ -118,25 +118,52 @@ def get_response_status(playwright_client: PlaywrightClient) -> str:
         ".response-col_status",
         ".response .status",
         "[class*='response'] [class*='status']",
-        ".responses-wrapper .response .status"
+        ".responses-wrapper .response .status",
+        ".response-col_status .status",
+        ".response .response-col_status",
+        ".opblock-response .response-col_status",
+        ".opblock-response .status"
     ]
     
     for selector in possible_selectors:
         try:
             if playwright_client.is_element_visible(selector):
-                return playwright_client.get_text(selector)
+                text = playwright_client.get_text(selector)
+                if text and text.strip():
+                    return text.strip()
         except:
             continue
     
-    # Fallback: leta efter status-text
+    # Fallback: leta efter status-text med JavaScript
     status_text = playwright_client.execute_javascript("""
         (() => {
-            const elements = document.querySelectorAll('*');
-            for (let el of elements) {
-                if (el.textContent && el.textContent.match(/\\b[0-9]{3}\\b/)) {
-                    return el.textContent;
+            // Leta efter status-kod i olika element
+            const selectors = [
+                '.response-col_status',
+                '.response .status',
+                '[class*="response"] [class*="status"]',
+                '.responses-wrapper .response .status',
+                '.opblock-response .response-col_status',
+                '.opblock-response .status'
+            ];
+            
+            for (let selector of selectors) {
+                const elements = document.querySelectorAll(selector);
+                for (let el of elements) {
+                    if (el.textContent && el.textContent.trim()) {
+                        return el.textContent.trim();
+                    }
                 }
             }
+            
+            // Leta efter status-kod i hela dokumentet
+            const allElements = document.querySelectorAll('*');
+            for (let el of allElements) {
+                if (el.textContent && el.textContent.match(/\\b[0-9]{3}\\b/)) {
+                    return el.textContent.trim();
+                }
+            }
+            
             return '';
         })()
     """)
@@ -150,17 +177,36 @@ def get_response_body(playwright_client: PlaywrightClient) -> str:
         ".response-col_description .microlight",
         ".response-body",
         ".response .body",
-        "[class*='response'] [class*='body']"
+        "[class*='response'] [class*='body']",
+        ".response-col_description",
+        ".opblock-response .response-col_description",
+        ".response .response-col_description",
+        ".microlight"
     ]
     
     for selector in possible_selectors:
         try:
             if playwright_client.is_element_visible(selector):
-                return playwright_client.get_text(selector)
+                text = playwright_client.get_text(selector)
+                if text and text.strip():
+                    return text.strip()
         except:
             continue
     
-    return ""
+    # Fallback: leta efter JSON i hela dokumentet
+    json_text = playwright_client.execute_javascript("""
+        (() => {
+            const elements = document.querySelectorAll('*');
+            for (let el of elements) {
+                if (el.textContent && el.textContent.includes('{') && el.textContent.includes('}')) {
+                    return el.textContent.trim();
+                }
+            }
+            return '';
+        })()
+    """)
+    
+    return json_text or ""
 
 
 def check_endpoint_visible(playwright_client: PlaywrightClient, endpoint_path: str) -> bool:

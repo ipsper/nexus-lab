@@ -4,6 +4,10 @@ include requirements.txt
 include app/env.example
 recursive-include nexus_repository_api *.py
 recursive-include tests *.py
+include nexus_repository_api/main.py
+include nexus_repository_api/cli.py
+include nexus_repository_api/__init__.py
+include nexus_repository_api/models.py
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 recursive-exclude * .DS_Store

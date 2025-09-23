@@ -1,0 +1,16 @@
+# Ignorera kopierade filer från app/ katalogen
+# Dessa filer kopieras automatiskt av setup.py från app/ katalogen
+main.py
+cli.py
+__init__.py
+models.py
+
+# Ignorera hela api/ katalogen (kopieras från app/api/)
+api/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python

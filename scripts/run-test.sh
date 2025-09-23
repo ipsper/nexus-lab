@@ -41,6 +41,7 @@ show_help() {
     echo "  run-health          Kör health checks (stannar vid första fel)"
     echo "  run-api             Kör API-tester utan GUI (stannar vid första fel)"
     echo "  run-gui             Kör GUI-tester (stannar vid första fel)"
+    echo "  run-endpoints       Kör smarta endpoint-URL tester (stannar vid första fel)"
     echo "  run-k8s             Kör K8s-tester (stannar vid första fel)"
     echo "  build               Bygg test-container (utan cache)"
     echo "  build --with-cache  Bygg test-container med cache"
@@ -63,6 +64,7 @@ show_help() {
     echo "  $0 run-gui                     # Kör bara GUI-tester"
     echo "  $0 run-api --to-the-end        # Kör API-tester (fortsätt vid fel)"
     echo "  $0 run-gui --to-the-end        # Kör GUI-tester (fortsätt vid fel)"
+    echo "  $0 run-endpoints               # Kör smarta endpoint-URL tester"
     echo "  $0 run -k test_health          # Kör custom pytest-kommando"
     echo "  TEST_HOST=192.168.1.100 $0 run-api  # Kör API-tester mot annan host"
     echo "  $0 build --with-cache          # Bygg test-container med cache"
@@ -237,6 +239,21 @@ run_gui_tests() {
     exec_pytest -v $stop_on_fail -m gui --html=report.html --self-contained-html
 }
 
+# Run smart endpoint URL tests
+run_endpoint_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail test/test_endpoint_urls.py --html=report.html --self-contained-html
+}
+
 # Run K8s tests
 run_k8s_tests() {
     local stop_on_fail="-x"
@@ -337,6 +354,12 @@ main() {
             check_kind_cluster
             shift
             run_gui_tests "$@"
+            ;;
+        "run-endpoints")
+            check_docker
+            check_kind_cluster
+            shift
+            run_endpoint_tests "$@"
             ;;
         "run-k8s")
             check_docker

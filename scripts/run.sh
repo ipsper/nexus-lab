@@ -37,6 +37,10 @@ show_help() {
     echo ""
     echo "Kommandon:"
     echo "  create           Skapa allt (kluster + applikationer) - KOMPLETT SETUP"
+    echo "  install-all-gitlab Skapa allt med GitLab container - KOMPLETT SETUP"
+    echo "  install-all-local Skapa allt med lokal container - KOMPLETT SETUP"
+    echo "  restart-api-gitlab Starta om API med GitLab container (behåll kluster)"
+    echo "  restart-api-local Starta om API med lokal container (behåll kluster)"
     echo "  delete           Ta bort allt och rensa systemet - REN START"
     echo "  delete-saveimages Ta bort allt men spara images (utom FastAPI) - SNABB START"
     echo "  install-kind     Installera Kind"
@@ -45,9 +49,12 @@ show_help() {
     echo "  start-nexus      Starta Nexus (alias för deploy-nexus)"
     echo "  stop-nexus       Stoppa Nexus"
     echo "  restart-nexus    Starta om Nexus"
-    echo "  build-api        Bygg API-applikation Docker image"
-    echo "  deploy-api       Deploya API-applikation till klustret"
+    echo "  build-api        Bygg API-applikation Docker image (lokal)"
+    echo "  build-api-gitlab Bygg API-applikation Docker image (GitLab)"
+    echo "  deploy-api       Deploya API-applikation till klustret (lokal)"
+    echo "  deploy-api-gitlab Deploya API-applikation till klustret (GitLab)"
     echo "  start-api        Starta API-applikation (alias för deploy-api)"
+    echo "  start-api-gitlab Starta API-applikation (alias för deploy-api-gitlab)"
     echo "  stop-api         Stoppa API-applikation"
     echo "  get-logs         Visa Nexus-loggar"
     echo "  get-password     Hämta admin-lösenord"
@@ -62,10 +69,13 @@ show_help() {
     echo "  help             Visa denna hjälp"
     echo ""
     echo "Exempel:"
-    echo "  $0 install-kind"
-    echo "  $0 create-cluster"
-    echo "  $0 deploy-nexus"
-    echo "  $0 get-logs"
+    echo "  $0 install-all-gitlab    # Komplett setup med GitLab container"
+    echo "  $0 install-all-local     # Komplett setup med lokal container"
+    echo "  $0 restart-api-gitlab    # Starta om API med GitLab container"
+    echo "  $0 restart-api-local     # Starta om API med lokal container"
+    echo "  $0 build-api-gitlab      # Bygg bara GitLab container"
+    echo "  $0 deploy-api-gitlab     # Deploya bara GitLab container"
+    echo "  $0 get-logs              # Visa loggar"
 }
 
 # Kontrollera om kubectl är installerat
@@ -400,26 +410,40 @@ delete_nexus() {
     print_success "Nexus borttaget!"
 }
 
-# Bygg API Docker image
+# Bygg API Docker image (lokal)
 build_api() {
-    print_info "Bygger API Docker image..."
+    print_info "Bygger API Docker image (lokal)..."
     
-    if [ ! -d "app" ]; then
-        print_error "App-mappen finns inte. Kör från projektets root-katalog."
+    if [ ! -f "Dockerfile" ]; then
+        print_error "Dockerfile finns inte. Kör från projektets root-katalog."
         exit 1
     fi
     
-    cd app
-    docker build -t nexus-api:latest .
-    cd ..
+    # Bygg lokal Docker image från root Dockerfile
+    docker build -f Dockerfile -t nexus-api:latest .
     
-    print_success "API Docker image byggd!"
+    print_success "API Docker image byggd (lokal)!"
 }
 
-# Deploya API
+# Bygg API Docker image (GitLab)
+build_api_gitlab() {
+    print_info "Bygger API Docker image (GitLab)..."
+    
+    if [ ! -f "Dockerfile.gitlab" ]; then
+        print_error "Dockerfile.gitlab finns inte. Kör från projektets root-katalog."
+        exit 1
+    fi
+    
+    # Bygg GitLab Docker image
+    docker build -f Dockerfile.gitlab -t nexus-api-gitlab:latest .
+    
+    print_success "API Docker image byggd (GitLab)!"
+}
+
+# Deploya API (lokal)
 deploy_api() {
     check_kubectl
-    print_info "Deployar API-applikation till Kind-klustret..."
+    print_info "Deployar API-applikation till Kind-klustret (lokal)..."
     
     # Kontrollera om klustret finns
     if ! kind get clusters | grep -q nexus-cluster; then
@@ -428,7 +452,7 @@ deploy_api() {
     fi
     
     # Kontrollera om API image finns
-    if ! docker images | grep -q nexus-api; then
+    if ! docker images | grep -q nexus-api:latest; then
         print_warning "API Docker image finns inte. Bygger den först..."
         build_api
     fi
@@ -437,7 +461,7 @@ deploy_api() {
     kind load docker-image nexus-api:latest --name nexus-cluster
     
     # Deploya API
-    print_info "Deployar FastAPI-applikation..."
+    print_info "Deployar FastAPI-applikation (lokal)..."
     kubectl apply -f k8s/nexus-api-deployment.yaml
     
     print_info "Väntar på att API startar..."
@@ -453,9 +477,121 @@ deploy_api() {
         print_info "Fortsätter utan att vänta på pod-ready..."
     fi
     
-    print_success "API deployad!"
+    print_success "API deployad (lokal)!"
     print_info "API är tillgänglig via Kong Gateway på http://localhost:8000/api"
     print_info "API-dokumentation: http://localhost:8000/api/docs"
+}
+
+# Deploya API (GitLab)
+deploy_api_gitlab() {
+    check_kubectl
+    print_info "Deployar API-applikation till Kind-klustret (GitLab)..."
+    
+    # Kontrollera om klustret finns
+    if ! kind get clusters | grep -q nexus-cluster; then
+        print_error "Kind-klustret 'nexus-cluster' finns inte. Skapa det först med 'create-cluster'."
+        exit 1
+    fi
+    
+    # Kontrollera om API image finns
+    if ! docker images | grep -q nexus-api-gitlab:latest; then
+        print_warning "API Docker image finns inte. Bygger den först..."
+        build_api_gitlab
+    fi
+    
+    # Ladda image till Kind-klustret
+    kind load docker-image nexus-api-gitlab:latest --name nexus-cluster
+    
+    # Deploya API med GitLab image
+    print_info "Deployar FastAPI-applikation (GitLab)..."
+    
+    # Skapa temporär deployment fil för GitLab
+    cat > /tmp/nexus-api-gitlab-deployment.yaml << EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-api
+  namespace: nexus-api
+  labels:
+    app: nexus-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-api
+  template:
+    metadata:
+      labels:
+        app: nexus-api
+    spec:
+      containers:
+      - name: nexus-api
+        image: nexus-api-gitlab:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: CI_PROJECT_ID
+          value: "10"
+        - name: CI_API_V4_URL
+          value: "https://git.idp.ip-solutions.se/api/v4"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-api-service
+  namespace: nexus-api
+  labels:
+    app: nexus-api
+spec:
+  selector:
+    app: nexus-api
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
+EOF
+    
+    kubectl apply -f /tmp/nexus-api-gitlab-deployment.yaml
+    rm -f /tmp/nexus-api-gitlab-deployment.yaml
+    
+    print_info "Väntar på att API startar..."
+    # Vänta lite för att podden ska skapas
+    sleep 10
+    
+    # Kontrollera om podden finns innan vi väntar
+    if kubectl get pods -n nexus-api -l app=nexus-api --no-headers 2>/dev/null | grep -q .; then
+        kubectl wait --for=condition=ready pod -l app=nexus-api -n nexus-api --timeout=300s
+    else
+        print_warning "API pod hittades inte, kontrollerar status..."
+        kubectl get pods -n nexus-api
+        print_info "Fortsätter utan att vänta på pod-ready..."
+    fi
+    
+    print_success "API deployad (GitLab)!"
+    print_info "API är tillgänglig via Kong Gateway på http://localhost:8000/api"
+    print_info "API-dokumentation: http://localhost:8000/api/docs"
+    print_info "Pip-paket information: http://localhost:8000/api/pip-package"
 }
 
 # Stoppa API
@@ -518,12 +654,12 @@ create_all() {
     deploy_nexus
     
     # Steg 4: Bygga API
-    print_info "Steg 4/6: Bygger API Docker image..."
-    build_api
+    print_info "Steg 4/6: Bygger API Docker image (GitLab)..."
+    build_api_gitlab
     
     # Steg 5: Deploya API
-    print_info "Steg 5/6: Deployar API-applikation..."
-    deploy_api
+    print_info "Steg 5/6: Deployar API-applikation (GitLab)..."
+    deploy_api_gitlab
     
     # Steg 6: Visa status och lösenord
     print_info "Steg 6/6: Visar status och admin-lösenord..."
@@ -612,6 +748,331 @@ delete_all() {
     echo ""
 }
 
+# Komplett setup med GitLab container
+install_all_gitlab() {
+    print_info "🚀 Startar komplett setup med GitLab container..."
+    print_info "Detta kommer att:"
+    print_info "  1. Installera Kind (om inte redan installerat)"
+    print_info "  2. Skapa Kind-kluster"
+    print_info "  3. Deploya Nexus Repository Manager"
+    print_info "  4. Bygga GitLab API Docker image"
+    print_info "  5. Deploya GitLab API-applikation"
+    print_info "  6. Visa admin-lösenord och status"
+    echo ""
+    
+    # Steg 1: Installera Kind
+    if ! command -v kind &> /dev/null; then
+        print_info "Steg 1/6: Installerar Kind..."
+        install_kind
+    else
+        print_success "Steg 1/6: Kind redan installerat ✓"
+    fi
+    
+    # Steg 2: Skapa kluster
+    print_info "Steg 2/6: Skapar Kind-kluster..."
+    create_cluster
+    
+    # Steg 3: Deploya Nexus
+    print_info "Steg 3/6: Deployar Nexus Repository Manager..."
+    deploy_nexus
+    
+    # Steg 4: Bygga GitLab API
+    print_info "Steg 4/6: Bygger GitLab API Docker image..."
+    build_api_gitlab
+    
+    # Steg 5: Deploya GitLab API
+    print_info "Steg 5/6: Deployar GitLab API-applikation..."
+    deploy_api_gitlab
+    
+    # Steg 6: Visa status och lösenord
+    print_info "Steg 6/6: Visar status och admin-lösenord..."
+    echo ""
+    print_success "🎉 Komplett setup klar med GitLab container!"
+    echo ""
+    print_info "📋 Tjänster tillgängliga via Kong Gateway:"
+    print_info "  • Nexus Repository Manager: http://localhost:8000/nexus"
+    print_info "  • FastAPI Applikation (GitLab): http://localhost:8000/api"
+    print_info "  • API Dokumentation: http://localhost:8000/api/docs"
+    print_info "  • Pip-paket information: http://localhost:8000/api/pip-package"
+    print_info "  • Kong Admin API: http://localhost:8001"
+    print_info "  • Kong Admin GUI: http://localhost:8002"
+    echo ""
+    
+    # Visa admin-lösenord
+    get_password
+    
+    echo ""
+    print_info "🔧 Användbara kommandon:"
+    print_info "  • Kontrollera status: ./scripts/run.sh check-status"
+    print_info "  • Visa loggar: ./scripts/run.sh get-logs"
+    print_info "  • Ta bort allt: ./scripts/run.sh delete"
+    echo ""
+}
+
+# Komplett setup med lokal container
+install_all_local() {
+    print_info "🚀 Startar komplett setup med lokal container..."
+    print_info "Detta kommer att:"
+    print_info "  1. Installera Kind (om inte redan installerat)"
+    print_info "  2. Skapa Kind-kluster"
+    print_info "  3. Deploya Nexus Repository Manager"
+    print_info "  4. Bygga lokal API Docker image"
+    print_info "  5. Deploya lokal API-applikation"
+    print_info "  6. Visa admin-lösenord och status"
+    echo ""
+    
+    # Steg 1: Installera Kind
+    if ! command -v kind &> /dev/null; then
+        print_info "Steg 1/6: Installerar Kind..."
+        install_kind
+    else
+        print_success "Steg 1/6: Kind redan installerat ✓"
+    fi
+    
+    # Steg 2: Skapa kluster
+    print_info "Steg 2/6: Skapar Kind-kluster..."
+    create_cluster
+    
+    # Steg 3: Deploya Nexus
+    print_info "Steg 3/6: Deployar Nexus Repository Manager..."
+    deploy_nexus
+    
+    # Steg 4: Bygga lokal API
+    print_info "Steg 4/6: Bygger lokal API Docker image..."
+    build_api
+    
+    # Steg 5: Deploya lokal API
+    print_info "Steg 5/6: Deployar lokal API-applikation..."
+    deploy_api
+    
+    # Steg 6: Visa status och lösenord
+    print_info "Steg 6/6: Visar status och admin-lösenord..."
+    echo ""
+    print_success "🎉 Komplett setup klar med lokal container!"
+    echo ""
+    print_info "📋 Tjänster tillgängliga via Kong Gateway:"
+    print_info "  • Nexus Repository Manager: http://localhost:8000/nexus"
+    print_info "  • FastAPI Applikation (lokal): http://localhost:8000/api"
+    print_info "  • API Dokumentation: http://localhost:8000/api/docs"
+    print_info "  • Kong Admin API: http://localhost:8001"
+    print_info "  • Kong Admin GUI: http://localhost:8002"
+    echo ""
+    
+    # Visa admin-lösenord
+    get_password
+    
+    echo ""
+    print_info "🔧 Användbara kommandon:"
+    print_info "  • Kontrollera status: ./scripts/run.sh check-status"
+    print_info "  • Visa loggar: ./scripts/run.sh get-logs"
+    print_info "  • Ta bort allt: ./scripts/run.sh delete"
+    echo ""
+}
+
+# Starta om API med GitLab container (behåll kluster)
+restart_api_gitlab() {
+    print_info "🔄 Startar om API med GitLab container (behåll kluster)..."
+    print_info "Detta kommer att:"
+    print_info "  1. Stoppa befintlig API"
+    print_info "  2. Bygga om GitLab API Docker image (alltid)"
+    print_info "  3. Deploya ny GitLab API-applikation"
+    print_info "  4. Visa status"
+    echo ""
+    
+    # Steg 1: Stoppa befintlig API
+    print_info "Steg 1/4: Stoppar befintlig API..."
+    if kubectl get namespace nexus-api &> /dev/null; then
+        kubectl scale deployment nexus-api --replicas=0 -n nexus-api 2>/dev/null || true
+        print_success "API stoppad ✓"
+    else
+        print_info "API namespace finns inte, fortsätter..."
+    fi
+    
+    # Steg 2: Bygga om GitLab API (alltid)
+    print_info "Steg 2/4: Bygger om GitLab API Docker image (alltid)..."
+    # Ta bort befintlig image för att tvinga ombyggnad
+    if docker images | grep -q nexus-api-gitlab:latest; then
+        docker rmi -f nexus-api-gitlab:latest 2>/dev/null || true
+        print_info "Befintlig GitLab image borttagen"
+    fi
+    build_api_gitlab
+    
+    # Steg 3: Deploya ny GitLab API
+    print_info "Steg 3/4: Deployar ny GitLab API-applikation..."
+    # Ladda image till Kind-klustret
+    kind load docker-image nexus-api-gitlab:latest --name nexus-cluster
+    
+    # Deploya API med GitLab image
+    print_info "Deployar FastAPI-applikation (GitLab)..."
+    
+    # Skapa temporär deployment fil för GitLab
+    cat > /tmp/nexus-api-gitlab-deployment.yaml << EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-api
+  namespace: nexus-api
+  labels:
+    app: nexus-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-api
+  template:
+    metadata:
+      labels:
+        app: nexus-api
+    spec:
+      containers:
+      - name: nexus-api
+        image: nexus-api-gitlab:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: CI_PROJECT_ID
+          value: "10"
+        - name: CI_API_V4_URL
+          value: "https://git.idp.ip-solutions.se/api/v4"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-api-service
+  namespace: nexus-api
+  labels:
+    app: nexus-api
+spec:
+  selector:
+    app: nexus-api
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP
+EOF
+    
+    kubectl apply -f /tmp/nexus-api-gitlab-deployment.yaml
+    rm -f /tmp/nexus-api-gitlab-deployment.yaml
+    
+    print_info "Väntar på att API startar..."
+    # Vänta lite för att podden ska skapas
+    sleep 10
+    
+    # Kontrollera om podden finns innan vi väntar
+    if kubectl get pods -n nexus-api -l app=nexus-api --no-headers 2>/dev/null | grep -q .; then
+        kubectl wait --for=condition=ready pod -l app=nexus-api -n nexus-api --timeout=300s
+    else
+        print_warning "API pod hittades inte, kontrollerar status..."
+        kubectl get pods -n nexus-api
+        print_info "Fortsätter utan att vänta på pod-ready..."
+    fi
+    
+    print_success "API deployad (GitLab)!"
+    print_info "API är tillgänglig via Kong Gateway på http://localhost:8000/api"
+    print_info "API-dokumentation: http://localhost:8000/api/docs"
+    print_info "Pip-paket information: http://localhost:8000/api/pip-package"
+    
+    # Steg 4: Visa status
+    print_info "Steg 4/4: Visar status..."
+    echo ""
+    print_success "🎉 API omstartad med GitLab container!"
+    echo ""
+    print_info "📋 Tjänster tillgängliga via Kong Gateway:"
+    print_info "  • FastAPI Applikation (GitLab): http://localhost:8000/api"
+    print_info "  • API Dokumentation: http://localhost:8000/api/docs"
+    print_info "  • Pip-paket information: http://localhost:8000/api/pip-package"
+    echo ""
+}
+
+# Starta om API med lokal container (behåll kluster)
+restart_api_local() {
+    print_info "🔄 Startar om API med lokal container (behåll kluster)..."
+    print_info "Detta kommer att:"
+    print_info "  1. Stoppa befintlig API"
+    print_info "  2. Bygga om lokal API Docker image (alltid)"
+    print_info "  3. Deploya ny lokal API-applikation"
+    print_info "  4. Visa status"
+    echo ""
+    
+    # Steg 1: Stoppa befintlig API
+    print_info "Steg 1/4: Stoppar befintlig API..."
+    if kubectl get namespace nexus-api &> /dev/null; then
+        kubectl scale deployment nexus-api --replicas=0 -n nexus-api 2>/dev/null || true
+        print_success "API stoppad ✓"
+    else
+        print_info "API namespace finns inte, fortsätter..."
+    fi
+    
+    # Steg 2: Bygga om lokal API (alltid)
+    print_info "Steg 2/4: Bygger om lokal API Docker image (alltid)..."
+    # Bygg om pip-paketet först
+    print_info "Bygger om pip-paketet..."
+    ./scripts/build-pip.sh build
+    # Ta bort befintlig image för att tvinga ombyggnad
+    if docker images | grep -q nexus-api:latest; then
+        docker rmi -f nexus-api:latest 2>/dev/null || true
+        print_info "Befintlig lokal image borttagen"
+    fi
+    build_api
+    
+    # Steg 3: Deploya ny lokal API
+    print_info "Steg 3/4: Deployar ny lokal API-applikation..."
+    # Ladda image till Kind-klustret
+    kind load docker-image nexus-api:latest --name nexus-cluster
+    
+    # Deploya API
+    print_info "Deployar FastAPI-applikation (lokal)..."
+    kubectl apply -f k8s/nexus-api-deployment.yaml
+    
+    print_info "Väntar på att API startar..."
+    # Vänta lite för att podden ska skapas
+    sleep 10
+    
+    # Kontrollera om podden finns innan vi väntar
+    if kubectl get pods -n nexus-api -l app=nexus-api --no-headers 2>/dev/null | grep -q .; then
+        kubectl wait --for=condition=ready pod -l app=nexus-api -n nexus-api --timeout=300s
+    else
+        print_warning "API pod hittades inte, kontrollerar status..."
+        kubectl get pods -n nexus-api
+        print_info "Fortsätter utan att vänta på pod-ready..."
+    fi
+    
+    print_success "API deployad (lokal)!"
+    print_info "API är tillgänglig via Kong Gateway på http://localhost:8000/api"
+    print_info "API-dokumentation: http://localhost:8000/api/docs"
+    
+    # Steg 4: Visa status
+    print_info "Steg 4/4: Visar status..."
+    echo ""
+    print_success "🎉 API omstartad med lokal container!"
+    echo ""
+    print_info "📋 Tjänster tillgängliga via Kong Gateway:"
+    print_info "  • FastAPI Applikation (lokal): http://localhost:8000/api"
+    print_info "  • API Dokumentation: http://localhost:8000/api/docs"
+    echo ""
+}
+
 # Ta bort allt men spara images (utom FastAPI)
 delete_save_images() {
     print_info "🗑️  Rensar systemet men sparar images:"
@@ -678,6 +1139,18 @@ case "${1:-help}" in
     create)
         create_all
         ;;
+    install-all-gitlab)
+        install_all_gitlab
+        ;;
+    install-all-local)
+        install_all_local
+        ;;
+    restart-api-gitlab)
+        restart_api_gitlab
+        ;;
+    restart-api-local)
+        restart_api_local
+        ;;
     delete)
         delete_all
         ;;
@@ -702,8 +1175,14 @@ case "${1:-help}" in
     build-api)
         build_api
         ;;
+    build-api-gitlab)
+        build_api_gitlab
+        ;;
     deploy-api|start-api)
         deploy_api
+        ;;
+    deploy-api-gitlab|start-api-gitlab)
+        deploy_api_gitlab
         ;;
     stop-api)
         stop_api
