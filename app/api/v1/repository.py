@@ -3,7 +3,7 @@ Repository management endpoints
 """
 from fastapi import APIRouter, HTTPException
 from typing import List
-from .models import RepositoryInfo, repositories
+from .models import RepositoryInfo, repositories, packages
 
 # Skapa router för repository endpoints
 router = APIRouter(
@@ -13,7 +13,7 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=List[RepositoryInfo])
+@router.get("/")
 async def get_repositories():
     """Hämta alla repositories"""
     return repositories
@@ -26,6 +26,7 @@ async def get_repository(repository_name: str):
         if repo.name == repository_name:
             return repo
     raise HTTPException(status_code=404, detail="Repository inte hittad")
+
 
 
 @router.post("/", response_model=RepositoryInfo)

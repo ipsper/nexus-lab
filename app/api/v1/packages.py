@@ -37,14 +37,3 @@ async def get_package(package_name: str):
     return found_packages
 
 
-# Repository-specific package endpoints
-@router.get("/repositories/{repository_name}/packages", response_model=List[PackageInfo])
-async def get_repository_packages(repository_name: str):
-    """Hämta paket från specifik repository"""
-    # Kontrollera att repository finns
-    repo_exists = any(repo.name == repository_name for repo in repositories)
-    if not repo_exists:
-        raise HTTPException(status_code=404, detail="Repository inte hittad")
-    
-    repo_packages = [pkg for pkg in packages if pkg.repository == repository_name]
-    return repo_packages

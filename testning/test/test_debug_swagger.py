@@ -6,7 +6,7 @@ from support.playwright_client import PlaywrightClient
 from support.fastapi_gui_support import navigate_to_docs, wait_for_swagger_ui_loaded
 
 # Inaktivera asyncio för Playwright-tester
-pytestmark = pytest.mark.asyncio(mode="off")
+# pytestmark = pytest.mark.asyncio(False)
 
 
 @pytest.mark.gui
@@ -94,3 +94,34 @@ def test_debug_swagger_content(api_base_url):
         # Grundläggande kontroller
         assert client.is_element_visible(".swagger-ui"), "Swagger UI-element inte synligt"
         assert "swagger" in page_content.lower() or "openapi" in page_content.lower(), "Ingen Swagger/OpenAPI-referens hittades"
+        
+        # Kontrollera om det finns några opblock-element
+        print(f"\n=== OPBLOCK ELEMENT ===")
+        try:
+            opblocks = client.get_elements(".opblock")
+            print(f"Antal opblock-element: {len(opblocks)}")
+            
+            # Kontrollera varje opblock
+            for i, opblock in enumerate(opblocks[:5]):  # Bara första 5
+                try:
+                    text = opblock.text_content()
+                    print(f"Opblock {i}: {text[:100]}...")
+                except:
+                    print(f"Opblock {i}: [kunde inte läsa text]")
+        except Exception as e:
+            print(f"Fel vid hämtning av opblock-element: {e}")
+        
+        # Kontrollera om det finns några operation-grupper
+        print(f"\n=== OPERATION GRUPPER ===")
+        try:
+            opblock_tags = client.get_elements(".opblock-tag")
+            print(f"Antal operation-grupper: {len(opblock_tags)}")
+            
+            for i, tag in enumerate(opblock_tags):
+                try:
+                    text = tag.text_content()
+                    print(f"Grupp {i}: '{text}'")
+                except:
+                    print(f"Grupp {i}: [kunde inte läsa text]")
+        except Exception as e:
+            print(f"Fel vid hämtning av operation-grupper: {e}")

@@ -51,6 +51,8 @@ show_help() {
     echo "  restart-nexus    Starta om Nexus"
     echo "  build-api        Bygg API-applikation Docker image (lokal)"
     echo "  build-api-gitlab Bygg API-applikation Docker image (GitLab)"
+    echo "  rebuild-api      Bygg pip-paket, Docker image och ladda till Kind (komplett)"
+    echo "  load-image       Ladda Docker image till Kind-klustret"
     echo "  deploy-api       Deploya API-applikation till klustret (lokal)"
     echo "  deploy-api-gitlab Deploya API-applikation till klustret (GitLab)"
     echo "  start-api        Starta API-applikation (alias för deploy-api)"
@@ -522,8 +524,8 @@ build_api() {
         exit 1
     fi
     
-    # Bygg lokal Docker image från root Dockerfile
-    docker build -f Dockerfile -t nexus-api:latest .
+    # Bygg lokal Docker image från root Dockerfile (utan cache)
+    docker build --no-cache -f Dockerfile -t nexus-api:latest .
     
     print_success "API Docker image byggd (lokal)!"
 }
@@ -538,9 +540,88 @@ build_api_gitlab() {
     fi
     
     # Bygg GitLab Docker image
-    docker build -f Dockerfile.gitlab -t nexus-api-gitlab:latest .
+    docker build --no-cache -f Dockerfile.gitlab -t nexus-api-gitlab:latest .
     
     print_success "API Docker image byggd (GitLab)!"
+}
+
+# Ladda Docker image till Kind-klustret
+load_image() {
+    check_kubectl
+    
+    # Kontrollera om klustret finns
+    if ! kind get clusters | grep -q nexus-cluster; then
+        print_error "Kind-klustret 'nexus-cluster' finns inte. Skapa det först med 'create-cluster'."
+        exit 1
+    fi
+    
+    # Ladda lokal API image som standard
+    local image_name="${1:-nexus-api:latest}"
+    
+    print_info "Laddar Docker image '$image_name' till Kind-klustret..."
+    
+    # Kontrollera om image finns lokalt
+    if ! docker images | grep -q "${image_name/:*/}"; then
+        print_error "Docker image '$image_name' finns inte lokalt. Bygg den först."
+        exit 1
+    fi
+    
+    # Ladda image till Kind-klustret
+    kind load docker-image "$image_name" --name nexus-cluster
+    
+    print_success "Docker image '$image_name' laddad till Kind-klustret!"
+}
+
+# Bygg pip-paket, Docker image och ladda till Kind (komplett)
+rebuild_api() {
+    print_info "🔄 Komplett rebuild av API: pip-paket → Docker image → Kind-kluster"
+    print_info "================================================================"
+    
+    # Steg 1: Bygg pip-paket
+    print_info "Steg 1/4: Bygger pip-paket..."
+    if [ ! -f "scripts/build-pip.sh" ]; then
+        print_error "build-pip.sh finns inte. Kör från projektets root-katalog."
+        exit 1
+    fi
+    
+    ./scripts/build-pip.sh
+    if [ $? -ne 0 ]; then
+        print_error "Pip-paket byggdes inte framgångsrikt!"
+        exit 1
+    fi
+    print_success "✅ Pip-paket byggt!"
+    
+    # Steg 2: Bygg Docker image
+    print_info "Steg 2/4: Bygger Docker image..."
+    build_api
+    if [ $? -ne 0 ]; then
+        print_error "Docker image byggdes inte framgångsrikt!"
+        exit 1
+    fi
+    print_success "✅ Docker image byggt!"
+    
+    # Steg 3: Ladda till Kind-klustret
+    print_info "Steg 3/4: Laddar image till Kind-klustret..."
+    load_image
+    if [ $? -ne 0 ]; then
+        print_error "Image laddades inte till Kind-klustret!"
+        exit 1
+    fi
+    print_success "✅ Image laddad till Kind-klustret!"
+    
+    # Steg 4: Starta om API:et
+    print_info "Steg 4/4: Startar om API:et..."
+    stop_api
+    deploy_api
+    if [ $? -ne 0 ]; then
+        print_error "API:et startades inte om framgångsrikt!"
+        exit 1
+    fi
+    print_success "✅ API:et startat om!"
+    
+    print_success "🎉 Komplett rebuild slutförd!"
+    print_info "API:et är tillgängligt på http://localhost:8000/api"
+    print_info "API-dokumentation: http://localhost:8000/api/docs"
 }
 
 # Deploya API (lokal)
@@ -1280,6 +1361,12 @@ case "${1:-help}" in
         ;;
     build-api-gitlab)
         build_api_gitlab
+        ;;
+    rebuild-api)
+        rebuild_api
+        ;;
+    load-image)
+        load_image "$2"
         ;;
     deploy-api|start-api)
         deploy_api

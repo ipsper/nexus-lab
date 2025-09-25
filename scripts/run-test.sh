@@ -42,6 +42,10 @@ show_help() {
     echo "  run-api             Kör API-tester utan GUI (stannar vid första fel)"
     echo "  run-gui             Kör GUI-tester (stannar vid första fel)"
     echo "  run-endpoints       Kör smarta endpoint-URL tester (stannar vid första fel)"
+    echo "  run-basic           Kör grundläggande API-tester (stannar vid första fel)"
+    echo "  run-errors          Kör error handling-tester (stannar vid första fel)"
+    echo "  run-validation      Kör data-valideringstester (stannar vid första fel)"
+    echo "  run-workflows       Kör end-to-end workflow-tester (stannar vid första fel)"
     echo "  run-k8s             Kör K8s-tester (stannar vid första fel)"
     echo "  build               Bygg test-container (utan cache)"
     echo "  build --with-cache  Bygg test-container med cache"
@@ -254,6 +258,66 @@ run_endpoint_tests() {
     exec_pytest -v $stop_on_fail test/test_endpoint_urls.py --html=report.html --self-contained-html
 }
 
+# Run basic API tests
+run_basic_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m basic --html=report.html --self-contained-html
+}
+
+# Run error handling tests
+run_errors_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m errors --html=report.html --self-contained-html
+}
+
+# Run data validation tests
+run_validation_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m validation --html=report.html --self-contained-html
+}
+
+# Run workflow tests
+run_workflows_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m workflows --html=report.html --self-contained-html
+}
+
 # Run K8s tests
 run_k8s_tests() {
     local stop_on_fail="-x"
@@ -360,6 +424,30 @@ main() {
             check_kind_cluster
             shift
             run_endpoint_tests "$@"
+            ;;
+        "run-basic")
+            check_docker
+            check_kind_cluster
+            shift
+            run_basic_tests "$@"
+            ;;
+        "run-errors")
+            check_docker
+            check_kind_cluster
+            shift
+            run_errors_tests "$@"
+            ;;
+        "run-validation")
+            check_docker
+            check_kind_cluster
+            shift
+            run_validation_tests "$@"
+            ;;
+        "run-workflows")
+            check_docker
+            check_kind_cluster
+            shift
+            run_workflows_tests "$@"
             ;;
         "run-k8s")
             check_docker
