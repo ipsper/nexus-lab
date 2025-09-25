@@ -59,6 +59,7 @@ show_help() {
     echo "  get-logs         Visa Nexus-loggar"
     echo "  get-password     Hämta admin-lösenord"
     echo "  check-status     Kontrollera status"
+    echo "  isalive          Snabb kontroll om klustret är uppe"
     echo "  kong-info        Visa Kong Gateway information"
     echo "  backup           Backup av Nexus-data"
     echo "  restore          Återställ från backup"
@@ -253,6 +254,108 @@ get_password() {
     else
         print_error "Kunde inte hämta admin-lösenord. Kontrollera att Nexus är igång."
     fi
+}
+
+# Snabb kontroll om klustret är uppe
+isalive() {
+    print_info "🔍 Snabb kontroll om klustret är uppe..."
+    
+    local exit_code=0
+    
+    # Kontrollera kubectl
+    if ! command -v kubectl &> /dev/null; then
+        print_error "kubectl är inte installerat"
+        exit 1
+    fi
+    
+    # Kontrollera Kind
+    if ! command -v kind &> /dev/null; then
+        print_error "Kind är inte installerat"
+        exit 1
+    fi
+    
+    # Kontrollera om klustret existerar
+    if ! kind get clusters | grep -q nexus-cluster; then
+        print_error "Kind-klustret 'nexus-cluster' finns inte!"
+        print_info "Skapa klustret med: ./scripts/run.sh create-cluster"
+        exit 1
+    fi
+    
+    # Kontrollera om klustret är tillgängligt
+    if ! kubectl cluster-info --context kind-nexus-cluster &> /dev/null; then
+        print_error "Kind-klustret är inte tillgängligt via kubectl!"
+        print_info "Starta klustret med: ./scripts/run.sh create-cluster"
+        exit 1
+    fi
+    
+    # Kontrollera noder
+    local node_count=$(kubectl get nodes --no-headers | wc -l)
+    local ready_nodes=$(kubectl get nodes --no-headers | grep -c " Ready " || echo "0")
+    
+    if [[ $node_count -eq 0 ]]; then
+        print_error "Inga noder hittades i klustret!"
+        exit 1
+    fi
+    
+    if [[ $ready_nodes -ne $node_count ]]; then
+        print_warning "Några noder är inte redo ($ready_nodes/$node_count)"
+        exit_code=1
+    fi
+    
+    # Kontrollera portar
+    local nexus_port_available=false
+    local api_port_available=false
+    
+    if lsof -i :8081 &> /dev/null; then
+        nexus_port_available=true
+    fi
+    
+    if lsof -i :3000 &> /dev/null; then
+        api_port_available=true
+    fi
+    
+    # Kontrollera service health
+    local nexus_healthy=false
+    local api_healthy=false
+    
+    if curl -s --max-time 5 http://localhost:8081/health &> /dev/null; then
+        nexus_healthy=true
+    fi
+    
+    if curl -s --max-time 5 http://localhost:3000/health &> /dev/null; then
+        api_healthy=true
+    fi
+    
+    # Sammanfattning
+    echo ""
+    print_info "📊 KLUSTER STATUS:"
+    print_info "  • Kind-kluster: ✅ Finns"
+    print_info "  • Kubectl-tillgänglighet: ✅ OK"
+    print_info "  • Noder: $ready_nodes/$node_count redo"
+    print_info "  • Nexus port (8081): $([ "$nexus_port_available" = true ] && echo "✅ Tillgänglig" || echo "❌ Inte tillgänglig")"
+    print_info "  • API port (3000): $([ "$api_port_available" = true ] && echo "✅ Tillgänglig" || echo "❌ Inte tillgänglig")"
+    print_info "  • Nexus health: $([ "$nexus_healthy" = true ] && echo "✅ Svarar" || echo "❌ Svarar inte")"
+    print_info "  • API health: $([ "$api_healthy" = true ] && echo "✅ Svarar" || echo "❌ Svarar inte")"
+    
+    if [[ $exit_code -eq 0 && "$nexus_port_available" = true && "$api_port_available" = true ]]; then
+        print_success "✅ Klustret är uppe och fungerar!"
+        print_info "Tjänster tillgängliga:"
+        print_info "  • Nexus: http://localhost:8081"
+        print_info "  • API: http://localhost:3000"
+        print_info "  • Via Kong Gateway: http://localhost:8000"
+    else
+        print_warning "⚠️  Klustret körs men har problem"
+        if [[ "$nexus_port_available" = false ]]; then
+            print_info "  • Starta Nexus: ./scripts/run.sh deploy-nexus"
+        fi
+        if [[ "$api_port_available" = false ]]; then
+            print_info "  • Starta API: ./scripts/run.sh deploy-api"
+        fi
+        print_info "  • Fullständig status: ./scripts/run.sh check-status"
+        print_info "  • Debug: ./scripts/k8s-debug.sh full-debug"
+    fi
+    
+    exit $exit_code
 }
 
 # Kontrollera status
@@ -1198,6 +1301,9 @@ case "${1:-help}" in
         ;;
     check-status)
         check_status
+        ;;
+    isalive)
+        isalive
         ;;
     kong-info)
         show_kong_info
