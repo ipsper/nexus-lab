@@ -133,6 +133,25 @@ class PlaywrightClient:
             raise RuntimeError("Browser inte startad. Kör start() först.")
         return self.page.content()
     
+    def get_elements(self, selector: str) -> list:
+        """Hämta alla element som matchar selector"""
+        if not self.page:
+            raise RuntimeError("Browser inte startad. Kör start() först.")
+        locator = self.page.locator(selector)
+        count = locator.count()
+        elements = []
+        for i in range(count):
+            elements.append(locator.nth(i))
+        return elements
+    
+    def get_console_logs(self) -> list:
+        """Hämta console-loggarna"""
+        if not self.page:
+            raise RuntimeError("Browser inte startad. Kör start() först.")
+        # Detta är en förenklad implementation
+        # I en riktig implementation skulle man samla loggar under sidans livslängd
+        return []
+    
     def close(self) -> None:
         """Stäng browser och Playwright"""
         if self.page:

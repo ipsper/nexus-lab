@@ -248,7 +248,42 @@ python -m twine upload dist/*
 pip install nexus-repository-api
 ```
 
-### 3. Automatisk distribution med GitHub Actions
+### 3. Ladda upp till privat GitLab PyPI-repository
+
+```bash
+# Använd build-skriptet för enkel upload
+./scripts/build-pip.sh upload
+
+# Eller manuellt med twine
+twine upload --repository-url https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi/simple dist/*
+
+# Installera från privat repository
+pip install --index-url https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi/simple nexus-repository-api
+
+# Eller som extra index (fallback till PyPI)
+pip install --extra-index-url https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi/simple nexus-repository-api
+```
+
+**Autentisering för privat repository:**
+
+👉 **[Se detaljerad guide: CREDENTIALS-README.md](CREDENTIALS-README.md)**
+
+Du behöver en GitLab access token med `write_repository` scope. Den enklaste metoden är att använda `mina-credentials.txt`:
+
+```bash
+# Skapa filen build-pip/mina-credentials.txt
+GITLAB_USERNAME=din_gitlab_username
+GITLAB_TOKEN=din_gitlab_token
+```
+
+Sedan kör du:
+```bash
+./scripts/build-pip.sh upload
+```
+
+Skriptet läser automatiskt från `mina-credentials.txt` och skapar `.pypirc` för dig.
+
+### 4. Automatisk distribution med GitHub Actions
 
 Skapa `.github/workflows/publish.yml`:
 

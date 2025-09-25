@@ -60,6 +60,12 @@ data:
         - /api
         - /api/
         strip_path: true
+      - name: openapi-route
+        paths:
+        - /api/openapi.json
+        methods:
+        - GET
+        strip_path: false
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -13,14 +13,8 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --upgrade pip==25.2 && pip3 install --no-cache-dir -r requirements.txt
 
-# Install Flask from private PyPI repository (with fallback to standard PyPI)
-RUN pip3 install Flask==3.1.2 \
-    --index-url https://git.idp.ip-solutions.se/api/v4/projects/9/packages/pypi/simple \
-    --trusted-host git.idp.ip-solutions.se \
-    --extra-index-url https://pypi.org/simple/ || \
-    pip3 install Flask==3.1.2
 
 # Install Playwright browsers
 RUN playwright install --with-deps

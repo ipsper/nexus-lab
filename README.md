@@ -23,7 +23,8 @@ Nexus Repository Manager är en kraftfull artefakt-hantering som stöder:
 
 FastAPI-applikationen kan också distribueras som ett pip-paket för enklare installation och användning:
 
-👉 **[Se detaljerad guide: build-pip/README.md](build-pip/README.md)**
+👉 **[Se detaljerad guide: build-pip/README.md](build-pip/README.md)**  
+🔧 **[Felsökningsguide: build-pip/TROUBLESHOOTING.md](build-pip/TROUBLESHOOTING.md)**
 
 ### Snabbstart med pip-paket
 
@@ -528,6 +529,7 @@ Projektet innehåller omfattande dokumentation för alla komponenter:
 - **[🔧 run.sh Guide](scripts/run-README.md)** - Huvudhanteringsskript för installation och konfiguration
 - **[🐛 k8s-debug.sh Guide](scripts/k8s-debug-README.md)** - Avancerat debug-skript för felsökning
 - **[🧪 Testsystem Guide](testning/README.md)** - Komplett guide för testsystemet
+- **[🚀 App Guide](app/README.md)** - FastAPI-applikationens struktur och endpoints
 
 ### 🧪 Testsystem
 Projektet har ett omfattande testsystem med:
@@ -536,6 +538,7 @@ Projektet har ett omfattande testsystem med:
 - **GUI-tester** - Playwright-baserade UI-tester  
 - **Integration-tester** - Testar samspelet mellan tjänster
 - **K8s-tester** - Kubernetes deployment-tester
+- **🆕 Smart endpoint-tester** - Dynamisk validering av API endpoints
 
 **➡️ [Läs hela testguiden](testning/README.md)** för detaljerad information om:
 - Hur man kör olika typer av tester
@@ -543,6 +546,7 @@ Projektet har ett omfattande testsystem med:
 - Verbose mode och debugging
 - --to-the-end flaggor
 - Playwright GUI-testning
+- Nya smarta endpoint-URL tester
 
 ### Snabböversikt
 
@@ -557,6 +561,7 @@ Projektet har ett omfattande testsystem med:
 ./scripts/run-test.sh run-health             # Health checks
 ./scripts/run-test.sh run-api                # API-tester (utan GUI)
 ./scripts/run-test.sh run-gui                # GUI-tester
+./scripts/run-test.sh run-endpoints          # 🆕 Smarta endpoint-URL tester
 ./scripts/test.sh all                        # Alla tester
 
 # Testning mot annan miljö
@@ -568,7 +573,59 @@ TEST_PORT=9000 ./scripts/run-test.sh run-gui             # Annan port
 - **[🔧 run.sh README](scripts/run-README.md)** - Komplett guide för huvudskriptet
 - **[🐛 k8s-debug.sh README](scripts/k8s-debug-README.md)** - Avancerad felsökningsguide  
 - **[🧪 Testsystem README](testning/README.md)** - Komplett testguide med konfigurerbara URL:er
+- **[🚀 App README](app/README.md)** - FastAPI-applikationens struktur och endpoints
 
+### 🎯 Snabbkommandon per README
+
+**📋 [Scripts Guide](scripts/README.md)**
+```bash
+./scripts/run.sh help                        # Visa alla kommandon
+./scripts/k8s-debug.sh help                  # Debug-kommandon
+./scripts/run-test.sh help                   # Test-kommandon
+```
+
+**🔧 [run.sh Guide](scripts/run-README.md)**
+```bash
+./scripts/run.sh create                      # Komplett setup
+./scripts/run.sh restart-api-local           # Bygg om och starta API
+./scripts/run.sh status                      # Visa status
+./scripts/run.sh logs                        # Visa loggar
+```
+
+**🐛 [k8s-debug.sh Guide](scripts/k8s-debug-README.md)**
+```bash
+./scripts/k8s-debug.sh full-debug           # Komplett debug-analys
+./scripts/k8s-debug.sh api-status           # API-status
+./scripts/k8s-debug.sh nexus-status         # Nexus-status
+./scripts/k8s-debug.sh network              # Nätverksdiagnostik
+```
+
+**🧪 [Testsystem Guide](testning/README.md)**
+```bash
+./scripts/run-test.sh run-health             # Health checks
+./scripts/run-test.sh run-api                # API-tester
+./scripts/run-test.sh run-gui                # GUI-tester
+./scripts/run-test.sh run-endpoints          # Smarta endpoint-tester
+./scripts/run-test.sh run-k8s                # K8s-tester
+```
+
+**🚀 [App Guide](app/README.md)**
+```bash
+# Lokal utveckling
+cd app && python -m uvicorn main:app --reload
+
+# Testa endpoints
+curl http://localhost:8000/api/health
+curl http://localhost:8000/api/docs
+```
+
+**📦 [Pip-paket Guide](build-pip/README.md)**
+```bash
+./scripts/build-pip.sh build                # Bygg pip-paket
+./scripts/build-pip.sh docker               # Bygg Docker-image
+./scripts/build-pip.sh install              # Installera lokalt
+nexus-api --port 3000                       # Starta applikation
+```
 
 ### Skriptfunktioner:
 
@@ -591,9 +648,10 @@ TEST_PORT=9000 ./scripts/run-test.sh run-gui             # Annan port
 #### run-test.sh (Testsystem)
 - **Konfigurerbara URL:er** via miljövariabler (TEST_HOST, TEST_PORT)
 - **Persistent Docker-container** med docker exec för snabbare tester
-- **Separata testtyper**: Health, API, GUI, K8s
+- **Separata testtyper**: Health, API, GUI, K8s, Endpoints
 - **Stop-on-failure** som standard med `--to-the-end` flagga
 - **Playwright GUI-tester** med Chromium, Firefox support
+- **🆕 Smarta endpoint-tester** med dynamisk validering
 - **Automatisk miljökonfiguration** visas vid container-start
 
 ## Support och dokumentation
@@ -602,6 +660,7 @@ TEST_PORT=9000 ./scripts/run-test.sh run-gui             # Annan port
 - [Docker Hub - Nexus3](https://hub.docker.com/r/sonatype/nexus3/)
 - [Sonatype Community](https://community.sonatype.com/)
 - [Pip-paket Guide](build-pip/README.md) - Detaljerad guide för att bygga och distribuera FastAPI-appen som pip-paket
+- [Pip-paket Felsökning](build-pip/TROUBLESHOOTING.md) - Omfattande felsökningsguide för pip-paket och Docker-problem
 
 ## Licens
 

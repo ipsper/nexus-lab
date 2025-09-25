@@ -1,8 +1,8 @@
-# Nexus Repository API - Development Docker Image
-# Detta Dockerfile bygger pip-paketet i containern för utveckling
+# Nexus Repository API - GitLab CI/CD Docker Image
+# Detta Dockerfile bygger och installerar pip-paketet i GitLab CI/CD miljö
 
-# Använd Python 3.11 slim image
-FROM python:3.11-slim
+# Använd Python 3.13 image (samma som CI/CD)
+FROM python:3.13-slim
 
 # Sätt arbetskatalog
 WORKDIR /app
@@ -10,15 +10,17 @@ WORKDIR /app
 # Installera systemberoenden
 RUN apt-get update && apt-get install -y \
     curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Kopiera alla filer som behövs för att bygga paketet
-COPY pyproject.toml MANIFEST.in LICENSE ./
-COPY nexus_repository_api/ ./nexus_repository_api/
-COPY tests/ ./tests/
+# Kopiera hela build-pip mappen
+COPY build-pip/ ./build-pip/
+
+# Gå till build-pip mappen och bygg paketet
+WORKDIR /app/build-pip
 
 # Uppdatera pip och installera build-verktyg
-RUN pip install --upgrade pip==25.2 && pip install --no-cache-dir build
+RUN pip install --upgrade pip==25.2 && pip install --no-cache-dir build twine
 
 # Bygg pip-paketet
 RUN python -m build
@@ -26,11 +28,14 @@ RUN python -m build
 # Installera det byggda paketet
 RUN pip install --no-cache-dir dist/nexus_repository_api-1.0.0-py3-none-any.whl
 
+# Gå tillbaka till app-mappen
+WORKDIR /app
+
 # Exponera port 3000
 EXPOSE 3000
 
-# Miljövariabler för utveckling
-ENV ENVIRONMENT=development
+# Miljövariabler
+ENV ENVIRONMENT=production
 ENV PYTHONUNBUFFERED=1
 
 # Health check
@@ -38,4 +43,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
 # Starta applikationen med nexus-api kommandot
-CMD ["nexus-api", "--host", "0.0.0.0", "--port", "3000", "--reload"]
+CMD ["nexus-api", "--host", "0.0.0.0", "--port", "3000"]
