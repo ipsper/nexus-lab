@@ -3,7 +3,7 @@ Nexus Repository Manager API - Huvudapplikation
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import repository, packages, system
+from nexus_repository_api.api.v1 import repository, packages, system, schedule
 
 # Skapa FastAPI-instans med taggrupper
 app = FastAPI(
@@ -26,6 +26,10 @@ app = FastAPI(
             "name": "överigt",
             "description": "Systeminformation, statistik, konfiguration och utvecklingsverktyg",
         },
+        {
+            "name": "schema",
+            "description": "Schemaläggning av API-anrop - skapa, hantera och övervaka automatiska uppgifter",
+        },
     ]
 )
 
@@ -42,13 +46,27 @@ app.add_middleware(
 app.include_router(system.router)
 app.include_router(repository.router)
 app.include_router(packages.router)
+app.include_router(schedule.router)
 
-if __name__ == "__main__":
+
+@app.on_event("startup")
+async def startup_event():
+    """Starta background tasks vid applikationsstart"""
+    import asyncio
+    # Starta schema background task
+    asyncio.create_task(schedule.run_scheduled_tasks())
+
+def run_server(host: str = "0.0.0.0", port: int = 3000, reload: bool = False, log_level: str = "info"):
+    """Starta servern med uvicorn"""
     import uvicorn
     uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=3000,
-        reload=True,
-        log_level="info"
+        "nexus_repository_api.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level=log_level
     )
+
+
+if __name__ == "__main__":
+    run_server()

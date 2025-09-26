@@ -530,6 +530,7 @@ Projektet innehåller omfattande dokumentation för alla komponenter:
 - **[🐛 k8s-debug.sh Guide](scripts/k8s-debug-README.md)** - Avancerat debug-skript för felsökning
 - **[🧪 Testsystem Guide](testning/README.md)** - Komplett guide för testsystemet
 - **[🚀 App Guide](app/README.md)** - FastAPI-applikationens struktur och endpoints
+- **[📅 Schemaläggare Guide](app/api/v1/SCHEDULER_README.md)** - Automatisk schemaläggning av API-anrop
 
 ### 🧪 Testsystem
 Projektet har ett omfattande testsystem med:
@@ -619,6 +620,174 @@ curl http://localhost:8000/api/health
 curl http://localhost:8000/api/docs
 ```
 
+## 🌐 API-exempel med curl
+
+Här är praktiska curl-exempel för att testa alla API-endpoints:
+
+### Grundläggande API-anrop
+
+```bash
+# Health check
+curl -X GET "http://localhost:8000/api/health" \
+  -H "accept: application/json"
+
+# Root endpoint
+curl -X GET "http://localhost:8000/api/" \
+  -H "accept: application/json"
+
+# API-konfiguration
+curl -X GET "http://localhost:8000/api/config" \
+  -H "accept: application/json"
+
+# Pip-paket information
+curl -X GET "http://localhost:8000/api/pip-package" \
+  -H "accept: application/json"
+
+# Statistik
+curl -X GET "http://localhost:8000/api/stats" \
+  -H "accept: application/json"
+
+# Stödda format
+curl -X GET "http://localhost:8000/api/formats" \
+  -H "accept: application/json"
+```
+
+### Repository-hantering
+
+```bash
+# Hämta alla repositories
+curl -X GET "http://localhost:8000/api/repositories/" \
+  -H "accept: application/json"
+
+# Hämta specifik repository
+curl -X GET "http://localhost:8000/api/repositories/pypi-hosted" \
+  -H "accept: application/json"
+
+# Skapa ny repository (POST med JSON-data)
+curl -X POST "http://localhost:8000/api/repositories/" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test-repo",
+    "format": "pypi",
+    "type": "hosted",
+    "description": "Test repository"
+  }'
+```
+
+### Paket-hantering
+
+```bash
+# Hämta alla paket
+curl -X GET "http://localhost:8000/api/packages/" \
+  -H "accept: application/json"
+
+# Hämta specifikt paket
+curl -X GET "http://localhost:8000/api/packages/requests" \
+  -H "accept: application/json"
+
+# Hämta paket från specifik repository
+curl -X GET "http://localhost:8000/api/packages/repositories/pypi-hosted/packages" \
+  -H "accept: application/json"
+
+# Skapa nytt paket (POST med JSON-data)
+curl -X POST "http://localhost:8000/api/packages/" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test-package",
+    "version": "1.0.0",
+    "repository": "pypi-hosted",
+    "description": "Test package"
+  }'
+```
+
+### Avancerade exempel
+
+```bash
+# Testa med verbose output för debugging
+curl -v -X GET "http://localhost:8000/api/health" \
+  -H "accept: application/json"
+
+# Testa med timeout
+curl --max-time 10 -X GET "http://localhost:8000/api/stats" \
+  -H "accept: application/json"
+
+# Testa med custom headers
+curl -X GET "http://localhost:8000/api/config" \
+  -H "accept: application/json" \
+  -H "User-Agent: MyApp/1.0" \
+  -H "X-API-Key: your-api-key"
+
+# Spara response till fil
+curl -X GET "http://localhost:8000/api/stats" \
+  -H "accept: application/json" \
+  -o stats.json
+
+# Följ redirects
+curl -L -X GET "http://localhost:8000/api/docs" \
+  -H "accept: text/html"
+```
+
+### Felsöknings-exempel
+
+```bash
+# Testa anslutning (endast status)
+curl -I "http://localhost:8000/api/health"
+
+# Testa med olika HTTP-metoder
+curl -X OPTIONS "http://localhost:8000/api/health" \
+  -H "accept: application/json"
+
+# Testa med felaktig data för att se error handling
+curl -X POST "http://localhost:8000/api/repositories/" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"invalid": "data"}'
+
+# Testa 404-fel
+curl -X GET "http://localhost:8000/api/nonexistent" \
+  -H "accept: application/json"
+```
+
+### Swagger UI och dokumentation
+
+```bash
+# Öppna Swagger UI i webbläsare
+open http://localhost:8000/api/docs
+
+# Eller med curl för att hämta HTML
+curl -X GET "http://localhost:8000/api/docs" \
+  -H "accept: text/html"
+
+# Hämta OpenAPI specifikation
+curl -X GET "http://localhost:8000/api/openapi.json" \
+  -H "accept: application/json" | jq '.'
+
+# Hämta ReDoc dokumentation
+curl -X GET "http://localhost:8000/api/redoc" \
+  -H "accept: text/html"
+```
+
+### Batch-testning
+
+```bash
+# Testa alla endpoints i en loop
+for endpoint in health config stats formats repositories packages; do
+  echo "Testing /api/$endpoint"
+  curl -s -X GET "http://localhost:8000/api/$endpoint" \
+    -H "accept: application/json" | jq '.'
+  echo "---"
+done
+
+# Testa med olika ports (om du har flera instanser)
+for port in 8000 8001 8002; do
+  echo "Testing port $port"
+  curl -s -X GET "http://localhost:$port/api/health" \
+    -H "accept: application/json" || echo "Port $port not available"
+done
+```
+
 **📦 [Pip-paket Guide](build-pip/README.md)**
 ```bash
 ./scripts/build-pip.sh build                # Bygg pip-paket
@@ -626,6 +795,47 @@ curl http://localhost:8000/api/docs
 ./scripts/build-pip.sh install              # Installera lokalt
 nexus-api --port 3000                       # Starta applikation
 ```
+
+### 📅 Schemaläggning
+
+```bash
+# Skapa ett dagligt schema för hälsokontroll
+curl -X POST "http://localhost:8000/api/schedule/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Daglig hälsokontroll",
+    "endpoint": "/api/health",
+    "method": "GET",
+    "frequency": "daily",
+    "start_time": "2025-09-26T09:00:00Z"
+  }'
+
+# Hämta alla scheman
+curl -X GET "http://localhost:8000/api/schedule/" \
+  -H "accept: application/json"
+
+# Skapa veckovis schema för repository-synkronisering
+curl -X POST "http://localhost:8000/api/schedule/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Veckovis synkronisering",
+    "endpoint": "/api/repositories/",
+    "method": "GET",
+    "frequency": "weekly",
+    "start_time": "2025-09-26T08:00:00Z",
+    "max_executions": 52
+  }'
+
+# Köra schema manuellt
+curl -X POST "http://localhost:8000/api/schedule/{schedule_id}/execute" \
+  -H "accept: application/json"
+
+# Hämta körningshistorik
+curl -X GET "http://localhost:8000/api/schedule/{schedule_id}/executions" \
+  -H "accept: application/json"
+```
+
+**📖 [Se fullständig schemaläggningsguide](app/api/v1/SCHEDULER_README.md)** för detaljerade exempel och konfigurationsalternativ.
 
 ### Skriptfunktioner:
 

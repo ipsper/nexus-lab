@@ -64,9 +64,20 @@ this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-# Read requirements
-with open(os.path.join(this_directory, 'requirements.txt'), encoding='utf-8') as f:
-    requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+# Read requirements from copied requirements.txt
+try:
+    with open(os.path.join(this_directory, 'requirements.txt'), encoding='utf-8') as f:
+        requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+except FileNotFoundError:
+    # Fallback to hardcoded requirements if requirements.txt doesn't exist
+    requirements = [
+        "fastapi>=0.117.1",
+        "uvicorn[standard]>=0.37.0", 
+        "pydantic>=2.11.9",
+        "python-multipart>=0.0.20",
+        "httpx>=0.28.1",
+        "python-dotenv>=1.1.1",
+    ]
 
 setup(
     name="nexus-repository-api",

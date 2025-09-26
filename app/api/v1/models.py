@@ -2,8 +2,9 @@
 Pydantic models för API v1
 """
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
+from enum import Enum
 
 
 class RepositoryInfo(BaseModel):
@@ -41,6 +42,57 @@ class PipPackageInfo(BaseModel):
     build_info: Optional[dict] = None
 
 
+class ScheduleFrequency(str, Enum):
+    """Schema-frekvenser"""
+    ONCE = "once"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    CUSTOM = "custom"
+
+
+class ScheduleRequest(BaseModel):
+    """Request för att skapa ett schema"""
+    name: str
+    endpoint: str  # t.ex. "/api/repositories/"
+    method: str = "GET"  # HTTP-metod
+    headers: Optional[Dict[str, str]] = None
+    data: Optional[Dict[str, Any]] = None  # För POST/PUT requests
+    frequency: ScheduleFrequency
+    start_time: Optional[datetime] = None  # När schemat ska börja
+    end_time: Optional[datetime] = None  # När schemat ska sluta
+    max_executions: Optional[int] = None  # Max antal körningar
+    cron_expression: Optional[str] = None  # För custom frekvens
+    enabled: bool = True
+
+
+class ScheduleResponse(BaseModel):
+    """Response för schema-information"""
+    id: str
+    name: str
+    endpoint: str
+    method: str
+    frequency: ScheduleFrequency
+    next_execution: Optional[datetime]
+    last_execution: Optional[datetime]
+    execution_count: int
+    max_executions: Optional[int]
+    enabled: bool
+    created_at: datetime
+
+
+class ScheduleExecution(BaseModel):
+    """Information om en schema-körning"""
+    id: str
+    schedule_id: str
+    executed_at: datetime
+    status: str  # "success", "failed", "running"
+    response_status: Optional[int]
+    response_data: Optional[Dict[str, Any]]
+    error_message: Optional[str]
+    execution_time_ms: Optional[int]
+
+
 # In-memory storage (i en riktig app skulle detta vara en databas)
 repositories = [
     RepositoryInfo(
@@ -74,3 +126,7 @@ repositories = [
 ]
 
 packages = []
+
+# Schema storage (i en riktig app skulle detta vara en databas)
+schedules: Dict[str, ScheduleResponse] = {}
+schedule_executions: List[ScheduleExecution] = []

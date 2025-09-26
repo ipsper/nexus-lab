@@ -11,11 +11,11 @@ __email__ = "per.nehlin@ip-solutions.se"
 __description__ = "En FastAPI-baserad webbapplikation för att hantera Nexus Repository Manager"
 
 from .main import app, run_server
-from .models import RepositoryInfo, PackageInfo, HealthResponse
+from nexus_repository_api.api.v1.models import RepositoryInfo, PackageInfo, HealthResponse
 
 __all__ = [
     "app",
-    "run_server", 
+    "run_server",
     "RepositoryInfo",
     "PackageInfo",
     "HealthResponse",

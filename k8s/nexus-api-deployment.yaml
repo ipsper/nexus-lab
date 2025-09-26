@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: nexus-api
-        image: nexus-repository-api:latest
+        image: nexus-api:latest
         imagePullPolicy: Never
         ports:
         - containerPort: 3000
@@ -46,13 +46,13 @@ spec:
             cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /health
+            path: /api/health
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
-            path: /health
+            path: /api/health
             port: 3000
           initialDelaySeconds: 5
           periodSeconds: 5

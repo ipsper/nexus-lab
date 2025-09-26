@@ -613,6 +613,15 @@ rebuild_api() {
     print_info "Steg 4/4: Startar om API:et..."
     stop_api
     deploy_api
+    
+    # Tvinga fram en omstart av deployment för att använda den nya image:n
+    print_info "Tvingar fram omstart av deployment för att använda ny image..."
+    kubectl rollout restart deployment/nexus-api -n nexus-api
+    
+    # Vänta på att den nya podden är redo
+    print_info "Väntar på att den nya podden startar..."
+    kubectl wait --for=condition=ready pod -l app=nexus-api -n nexus-api --timeout=300s
+    
     if [ $? -ne 0 ]; then
         print_error "API:et startades inte om framgångsrikt!"
         exit 1
