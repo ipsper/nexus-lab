@@ -12,7 +12,9 @@ class SchedulerTestHelper:
     
     def __init__(self, base_url: str):
         self.base_url = base_url
-        self.schedule_url = f"{base_url}/schedule"
+        # Ta bort trailing slash från base_url för att undvika dubbel slash
+        clean_base_url = base_url.rstrip('/')
+        self.schedule_url = f"{clean_base_url}/schedule"
     
     def create_schedule(self, schedule_data: Dict[str, Any]) -> Dict[str, Any]:
         """Skapa ett schema"""
@@ -20,20 +22,21 @@ class SchedulerTestHelper:
         response = httpx.post(
             self.schedule_url,
             headers={"Content-Type": "application/json"},
-            json=schedule_data
+            json=schedule_data,
+            follow_redirects=True  # Följ redirects automatiskt
         )
         response.raise_for_status()
         return response.json()
     
     def get_all_schedules(self) -> list:
         """Hämta alla scheman"""
-        response = httpx.get(self.schedule_url)
+        response = httpx.get(self.schedule_url, follow_redirects=True)
         response.raise_for_status()
         return response.json()
     
     def get_schedule(self, schedule_id: str) -> Dict[str, Any]:
         """Hämta specifikt schema"""
-        response = httpx.get(f"{self.schedule_url}/{schedule_id}")
+        response = httpx.get(f"{self.schedule_url}/{schedule_id}", follow_redirects=True)
         response.raise_for_status()
         return response.json()
     
@@ -42,38 +45,39 @@ class SchedulerTestHelper:
         response = httpx.put(
             f"{self.schedule_url}/{schedule_id}",
             headers={"Content-Type": "application/json"},
-            json=update_data
+            json=update_data,
+            follow_redirects=True
         )
         response.raise_for_status()
         return response.json()
     
     def enable_schedule(self, schedule_id: str) -> Dict[str, Any]:
         """Aktivera schema"""
-        response = httpx.post(f"{self.schedule_url}/{schedule_id}/enable")
+        response = httpx.post(f"{self.schedule_url}/{schedule_id}/enable", follow_redirects=True)
         response.raise_for_status()
         return response.json()
     
     def disable_schedule(self, schedule_id: str) -> Dict[str, Any]:
         """Inaktivera schema"""
-        response = httpx.post(f"{self.schedule_url}/{schedule_id}/disable")
+        response = httpx.post(f"{self.schedule_url}/{schedule_id}/disable", follow_redirects=True)
         response.raise_for_status()
         return response.json()
     
     def execute_schedule(self, schedule_id: str) -> Dict[str, Any]:
         """Kör schema manuellt"""
-        response = httpx.post(f"{self.schedule_url}/{schedule_id}/execute")
+        response = httpx.post(f"{self.schedule_url}/{schedule_id}/execute", follow_redirects=True)
         response.raise_for_status()
         return response.json()
     
     def get_schedule_executions(self, schedule_id: str) -> list:
         """Hämta körningshistorik för schema"""
-        response = httpx.get(f"{self.schedule_url}/{schedule_id}/executions")
+        response = httpx.get(f"{self.schedule_url}/{schedule_id}/executions", follow_redirects=True)
         response.raise_for_status()
         return response.json()
     
     def delete_schedule(self, schedule_id: str) -> None:
         """Ta bort schema"""
-        response = httpx.delete(f"{self.schedule_url}/{schedule_id}")
+        response = httpx.delete(f"{self.schedule_url}/{schedule_id}", follow_redirects=True)
         response.raise_for_status()
     
     def create_test_schedule_data(self, 

@@ -19,56 +19,121 @@ class SwaggerEndpointExtractor:
         endpoints = []
         
         # Vänta på att Swagger UI ska ladda helt
-        self.page.wait_for_selector(".swagger-ui", timeout=10000)
-        self.page.wait_for_timeout(3000)  # Vänta extra för att API-schemat ska ladda
+        try:
+            self.page.wait_for_selector(".swagger-ui", timeout=10000)
+            self.page.wait_for_timeout(5000)  # Vänta extra för att API-schemat ska ladda
+        except:
+            print("⚠️ Swagger UI selector not found, trying alternative approach...")
         
-        # Hitta alla operation-grupper
-        operations = self.page.locator(".opblock-tag")
-        operation_count = operations.count()
+        # Försök flera olika selektorer för att hitta endpoints
+        selectors_to_try = [
+            ".opblock",
+            ".opblock-summary",
+            "[data-testid='endpoint']",
+            ".endpoint",
+            ".operation"
+        ]
         
-        print(f"🔍 Found {operation_count} operation groups")
-        
-        # Om inga operation-grupper hittas, försök hitta endpoints direkt
-        if operation_count == 0:
-            print("⚠️ No operation groups found, trying direct endpoint extraction...")
-            return self._extract_endpoints_directly()
-        
-        # Hämta alla endpoints direkt för att undvika duplicering
-        all_opblocks = self.page.locator(".opblock")
-        all_count = all_opblocks.count()
-        print(f"🔍 Found {all_count} total opblock elements")
-        
-        # Lägg till alla synliga opblock-element
-        for j in range(all_count):
-            opblock = all_opblocks.nth(j)
-            if opblock.is_visible():
-                verb_element = opblock.locator(".opblock-summary-method")
-                path_element = opblock.locator(".opblock-summary-path")
+        for selector in selectors_to_try:
+            try:
+                elements = self.page.locator(selector)
+                count = elements.count()
+                print(f"🔍 Trying selector '{selector}': found {count} elements")
                 
-                if verb_element.count() > 0 and path_element.count() > 0:
-                    verb = verb_element.text_content().strip()
-                    path = path_element.text_content().strip()
+                if count > 0:
+                    for i in range(count):
+                        element = elements.nth(i)
+                        if element.is_visible():
+                            # Försök hitta HTTP verb och path
+                            verb_element = element.locator(".opblock-summary-method, .http-verb, .method")
+                            path_element = element.locator(".opblock-summary-path, .path, .endpoint-path")
+                            
+                            if verb_element.count() > 0 and path_element.count() > 0:
+                                verb = verb_element.text_content().strip()
+                                path = path_element.text_content().strip()
+                                
+                                # Lägg till /api prefix om det saknas
+                                if not path.startswith("/api"):
+                                    path = f"/api{path}"
+                                
+                                full_url = f"http://localhost:8000{path}"
+                                
+                                # Kontrollera om endpoint redan finns (undvik duplicering)
+                                if not any(e["path"] == path and e["method"] == verb for e in endpoints):
+                                    endpoint_info = {
+                                        "method": verb,
+                                        "path": path,
+                                        "full_url": full_url,
+                                        "group": "all",
+                                        "endpoint_block": element
+                                    }
+                                    
+                                    endpoints.append(endpoint_info)
+                                    print(f"  ✅ {verb} {path}")
                     
-                    # Lägg till /api prefix om det saknas
-                    if not path.startswith("/api"):
-                        path = f"/api{path}"
-                    
-                    full_url = f"http://localhost:8000{path}"
-                    
-                    # Kontrollera om endpoint redan finns (undvik duplicering)
-                    if not any(e["path"] == path and e["method"] == verb for e in endpoints):
-                        endpoint_info = {
-                            "method": verb,
-                            "path": path,
-                            "full_url": full_url,
-                            "group": "all",
-                            "endpoint_block": opblock
-                        }
-                        
-                        endpoints.append(endpoint_info)
-                        print(f"  ✅ {verb} {path}")
+                    if endpoints:
+                        break
+            except Exception as e:
+                print(f"  ⚠️ Selector '{selector}' failed: {e}")
+                continue
+        
+        # Om inga endpoints hittades, försök hitta dem via JavaScript
+        if not endpoints:
+            print("⚠️ No endpoints found with selectors, trying JavaScript extraction...")
+            endpoints = self._extract_endpoints_via_javascript()
         
         return endpoints
+    
+    def _extract_endpoints_via_javascript(self):
+        """Extraherar endpoints via JavaScript om CSS-selektorer misslyckas"""
+        try:
+            # Använd JavaScript för att hitta alla endpoints
+            endpoints_data = self.page.evaluate("""
+                () => {
+                    const endpoints = [];
+                    
+                    // Hitta alla element som kan vara endpoints
+                    const possibleElements = document.querySelectorAll([
+                        '.opblock',
+                        '.opblock-summary', 
+                        '[data-testid="endpoint"]',
+                        '.endpoint',
+                        '.operation'
+                    ].join(','));
+                    
+                    possibleElements.forEach(element => {
+                        if (element.offsetParent !== null) { // Element är synligt
+                            const verbElement = element.querySelector('.opblock-summary-method, .http-verb, .method');
+                            const pathElement = element.querySelector('.opblock-summary-path, .path, .endpoint-path');
+                            
+                            if (verbElement && pathElement) {
+                                const verb = verbElement.textContent.trim();
+                                const path = pathElement.textContent.trim();
+                                
+                                if (verb && path) {
+                                    endpoints.push({
+                                        method: verb,
+                                        path: path.startsWith('/api') ? path : '/api' + path,
+                                        full_url: 'http://localhost:8000' + (path.startsWith('/api') ? path : '/api' + path)
+                                    });
+                                }
+                            }
+                        }
+                    });
+                    
+                    return endpoints;
+                }
+            """)
+            
+            print(f"🔍 JavaScript found {len(endpoints_data)} endpoints")
+            for endpoint in endpoints_data:
+                print(f"  ✅ {endpoint['method']} {endpoint['path']}")
+            
+            return endpoints_data
+            
+        except Exception as e:
+            print(f"⚠️ JavaScript extraction failed: {e}")
+            return []
     
     def _extract_endpoints_directly(self):
         """Extraherar endpoints direkt från Swagger UI utan operation-grupper"""
