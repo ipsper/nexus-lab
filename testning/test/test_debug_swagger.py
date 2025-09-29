@@ -12,8 +12,11 @@ from support.fastapi_gui_support import navigate_to_docs, wait_for_swagger_ui_lo
 @pytest.mark.gui
 def test_debug_swagger_content(api_base_url):
     """Debug Swagger UI-innehåll"""
+    # Fixa URL för /docs (inte under /api/)
+    docs_url = api_base_url.replace("/api/", "/")
+    
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, docs_url)
         wait_for_swagger_ui_loaded(client)
         
         # Ta skärmdump (om tillgängligt)

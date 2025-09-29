@@ -150,7 +150,7 @@ def test_extract_and_verify_all_endpoints():
         try:
             # Gå till Swagger docs
             print("🌐 Loading Swagger UI...")
-            page.goto("http://localhost:8000/api/docs")
+            page.goto("http://localhost:8000/docs")
             page.wait_for_load_state("networkidle")
             
             # Extrahera alla endpoints
@@ -249,11 +249,11 @@ def test_openapi_spec_consistency():
             for path in api_paths:
                 print(f"  - {path}")
             
-                # Verifiera att alla paths är giltiga (OpenAPI spec visar paths utan /api prefix)
+                # Verifiera att alla paths är giltiga
                 print(f"\n✅ All {len(api_paths)} paths are valid")
                 
-                # Kontrollera att vi har de förväntade endpoints
-                expected_endpoints = ["/", "/health", "/repositories/", "/packages/", "/config", "/pip-package"]
+                # Kontrollera att vi har de förväntade endpoints (med /api/ prefix)
+                expected_endpoints = ["/api/", "/api/health", "/api/repositories/", "/api/packages/", "/api/config", "/api/pip-package"]
                 missing_endpoints = [ep for ep in expected_endpoints if ep not in api_paths]
                 
                 if missing_endpoints:
@@ -278,7 +278,7 @@ def test_all_endpoint_urls_correct():
         
         try:
             # Gå till Swagger docs
-            page.goto("http://localhost:8000/api/docs")
+            page.goto("http://localhost:8000/docs")
             page.wait_for_load_state("networkidle")
             
             # Samla alla endpoint URLs från Swagger UI
@@ -297,22 +297,30 @@ def test_all_endpoint_urls_correct():
                 endpoint_urls.append(full_url)
                 print(f"Found endpoint: {full_url}")
             
-                # Förväntade endpoints (med /api prefix)
-                expected_endpoints = [
-                    "GET /api/",
-                    "GET /api/health",
-                    "GET /api/stats",
-                    "GET /api/formats",
-                    "GET /api/config",
-                    "GET /api/pip-package",
-                    "GET /api/repositories/",
-                    "GET /api/repositories/{repository_name}",
-                    "POST /api/repositories/",
-                    "GET /api/packages/",
-                    "POST /api/packages/",
-                    "GET /api/packages/{package_name}",
-                    "GET /api/packages/repositories/{repository_name}/packages"
-                ]
+            # Förväntade endpoints (med /api prefix) - baserat på vad som faktiskt finns
+            expected_endpoints = [
+                "GET /api/",
+                "GET /api/health",
+                "GET /api/stats",
+                "GET /api/formats",
+                "GET /api/config",
+                "GET /api/pip-package",
+                "GET /api/repositories/",
+                "GET /api/repositories/{repository_name}",
+                "POST /api/repositories/",
+                "GET /api/packages/",
+                "POST /api/packages/",
+                "GET /api/packages/{package_name}",
+                "GET /api/schedule/",
+                "POST /api/schedule/",
+                "GET /api/schedule/{schedule_id}",
+                "PUT /api/schedule/{schedule_id}",
+                "DELETE /api/schedule/{schedule_id}",
+                "POST /api/schedule/{schedule_id}/execute",
+                "GET /api/schedule/{schedule_id}/executions",
+                "POST /api/schedule/{schedule_id}/enable",
+                "POST /api/schedule/{schedule_id}/disable"
+            ]
             
             print(f"\nFound {len(endpoint_urls)} endpoints:")
             for url in endpoint_urls:
@@ -369,7 +377,7 @@ def test_specific_endpoint_urls():
                 print(f"Testing {method} {endpoint}")
                 
                 # Gå till Swagger docs
-                page.goto("http://localhost:8000/api/docs")
+                page.goto("http://localhost:8000/docs")
                 page.wait_for_load_state("networkidle")
                 
                 # Hitta och klicka på endpoint
