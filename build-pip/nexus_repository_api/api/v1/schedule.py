@@ -9,6 +9,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from .models import (
     ScheduleRequest, 
+    ScheduleUpdate,
     ScheduleResponse, 
     ScheduleExecution, 
     ScheduleFrequency,
@@ -176,19 +177,30 @@ async def get_schedule(schedule_id: str):
 
 
 @router.put("/{schedule_id}", response_model=ScheduleResponse)
-async def update_schedule(schedule_id: str, schedule_request: ScheduleRequest):
+async def update_schedule(schedule_id: str, schedule_update: ScheduleUpdate):
     """Uppdatera ett schema"""
     if schedule_id not in schedules:
         raise HTTPException(status_code=404, detail="Schema inte hittat")
     
     schedule = schedules[schedule_id]
-    schedule.name = schedule_request.name
-    schedule.endpoint = schedule_request.endpoint
-    schedule.method = schedule_request.method
-    schedule.frequency = schedule_request.frequency
-    schedule.max_executions = schedule_request.max_executions
-    schedule.enabled = schedule_request.enabled
-    schedule.next_execution = calculate_next_execution(schedule)
+    
+    # Uppdatera endast de fält som skickades med
+    if schedule_update.name is not None:
+        schedule.name = schedule_update.name
+    if schedule_update.endpoint is not None:
+        schedule.endpoint = schedule_update.endpoint
+    if schedule_update.method is not None:
+        schedule.method = schedule_update.method
+    if schedule_update.frequency is not None:
+        schedule.frequency = schedule_update.frequency
+    if schedule_update.max_executions is not None:
+        schedule.max_executions = schedule_update.max_executions
+    if schedule_update.enabled is not None:
+        schedule.enabled = schedule_update.enabled
+    
+    # Beräkna nästa körning om något relevant ändrades
+    if any([schedule_update.frequency, schedule_update.enabled]):
+        schedule.next_execution = calculate_next_execution(schedule)
     
     return schedule
 

@@ -46,11 +46,14 @@ show_help() {
     echo "  run-errors          Kör error handling-tester (stannar vid första fel)"
     echo "  run-validation      Kör data-valideringstester (stannar vid första fel)"
     echo "  run-workflows       Kör end-to-end workflow-tester (stannar vid första fel)"
+    echo "  run-scheduler       Kör schemaläggningstester (stannar vid första fel)"
+    echo "  debug-env           Debugga test-miljön och URL:er"
     echo "  run-k8s             Kör K8s-tester (stannar vid första fel)"
     echo "  build               Bygg test-container (utan cache)"
     echo "  build --with-cache  Bygg test-container med cache"
     echo "  rebuild             Stoppa och bygg om test-container (utan cache)"
     echo "  rebuild --with-cache Stoppa och bygg om test-container med cache"
+    echo "  restart             Starta om test-container (behåller kod-ändringar)"
     echo "  stop                Stoppa test-container"
     echo "  clean               Rensa test-containers och images"
     echo "  logs                Visa test-logs"
@@ -73,7 +76,14 @@ show_help() {
     echo "  TEST_HOST=192.168.1.100 $0 run-api  # Kör API-tester mot annan host"
     echo "  $0 build --with-cache          # Bygg test-container med cache"
     echo "  $0 rebuild                     # Stoppa och bygg om test-container"
+    echo "  $0 restart                     # Starta om test-container (snabbare för kod-ändringar)"
     echo "  $0 stop                        # Stoppa test-container"
+    echo ""
+    echo "Tips:"
+    echo "  - Test-containern monterar testning/ som volume, så kod-ändringar"
+    echo "    i test/ och support/ mapparna är automatiskt tillgängliga"
+    echo "  - Använd 'restart' istället för 'rebuild' när du bara ändrat test-kod"
+    echo "  - Använd 'rebuild' när du ändrat requirements.txt eller Dockerfile"
 }
 
 # Check if Docker is running
@@ -318,6 +328,21 @@ run_workflows_tests() {
     exec_pytest -v $stop_on_fail -m workflows --html=report.html --self-contained-html
 }
 
+# Run scheduler tests
+run_scheduler_tests() {
+    local stop_on_fail="-x"
+    
+    # Check for --to-the-end argument
+    for arg in "$@"; do
+        if [[ "$arg" == "--to-the-end" ]]; then
+            stop_on_fail=""
+            break
+        fi
+    done
+    
+    exec_pytest -v $stop_on_fail -m scheduler --html=report.html --self-contained-html
+}
+
 # Run K8s tests
 run_k8s_tests() {
     local stop_on_fail="-x"
@@ -353,6 +378,25 @@ stop_test_container() {
     fi
 }
 
+# Restart test container (preserves code changes via volume mount)
+restart_test_container() {
+    local container_name="nexus-test-runner"
+    
+    print_info "Startar om test-container (behåller kod-ändringar via volume mount)..."
+    
+    # Stop existing container if running
+    if docker ps --filter "name=$container_name" | grep -q $container_name; then
+        print_info "Stoppar befintlig test-container..."
+        docker stop $container_name
+        docker rm $container_name
+    fi
+    
+    # Start new container
+    start_test_container
+    
+    print_success "Test-container omstartad! Kod-ändringar är automatiskt tillgängliga."
+}
+
 # Clean up
 clean_test_artifacts() {
     print_info "Rensar test-artifakter..."
@@ -385,6 +429,48 @@ show_logs() {
     else
         print_warning "Inga test-containers hittades."
     fi
+}
+
+# Debug test environment
+debug_test_environment() {
+    print_info "Debuggar test-miljön..."
+    
+    # Check if test container is running
+    if ! docker ps --filter "name=test-container" --format "{{.Names}}" | grep -q test-container; then
+        print_error "Test-container körs inte. Starta den först med: $0 build"
+        return 1
+    fi
+    
+    print_info "Kontrollerar miljövariabler och URL:er i test-container..."
+    docker exec test-container python3 -c "
+import os
+print('=== MILJÖVARIABLER ===')
+print('Docker env:', os.path.exists('/.dockerenv'))
+print('TEST_HOST:', os.getenv('TEST_HOST', 'localhost'))
+print('TEST_PORT:', os.getenv('TEST_PORT', '8000'))
+
+print('\n=== BERÄKNAT API_BASE_URL ===')
+host = os.getenv('TEST_HOST', 'localhost')
+port = os.getenv('TEST_PORT', '8000')
+if os.path.exists('/.dockerenv'):
+    host = 'host.docker.internal'
+api_base_url = f'http://{host}:{port}/api'
+print('api_base_url:', api_base_url)
+
+print('\n=== TESTAR ANSLUTNING ===')
+import requests
+try:
+    response = requests.get(f'{api_base_url}/health', timeout=5)
+    print(f'Health check: {response.status_code} - {response.text[:100]}')
+except Exception as e:
+    print(f'Health check failed: {e}')
+
+try:
+    response = requests.get(f'{api_base_url}/schedule/', timeout=5)
+    print(f'Schedule endpoint: {response.status_code} - {response.text[:100]}')
+except Exception as e:
+    print(f'Schedule endpoint failed: {e}')
+"
 }
 
 # Main script logic
@@ -449,6 +535,17 @@ main() {
             shift
             run_workflows_tests "$@"
             ;;
+        "run-scheduler")
+            check_docker
+            check_kind_cluster
+            shift
+            run_scheduler_tests "$@"
+            ;;
+        "debug-env")
+            check_docker
+            check_kind_cluster
+            debug_test_environment
+            ;;
         "run-k8s")
             check_docker
             check_kind_cluster
@@ -468,6 +565,10 @@ main() {
             shift
             stop_test_container
             build_test_container "$@"
+            ;;
+        "restart")
+            check_docker
+            restart_test_container
             ;;
         "clean")
             check_docker

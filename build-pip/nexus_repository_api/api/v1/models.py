@@ -66,6 +66,21 @@ class ScheduleRequest(BaseModel):
     enabled: bool = True
 
 
+class ScheduleUpdate(BaseModel):
+    """Request för att uppdatera ett schema (alla fält optional)"""
+    name: Optional[str] = None
+    endpoint: Optional[str] = None
+    method: Optional[str] = None
+    headers: Optional[Dict[str, str]] = None
+    data: Optional[Dict[str, Any]] = None
+    frequency: Optional[ScheduleFrequency] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    max_executions: Optional[int] = None
+    cron_expression: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
 class ScheduleResponse(BaseModel):
     """Response för schema-information"""
     id: str

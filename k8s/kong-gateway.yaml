@@ -53,16 +53,23 @@ data:
         - /nexus/
         strip_path: true
     - name: api-service
-      url: http://nexus-api-service.nexus-api.svc.cluster.local:8000
+      url: http://nexus-api-service.nexus-api.svc.cluster.local:3000
       routes:
       - name: api-route
         paths:
         - /api
         - /api/
-        strip_path: true
+        strip_path: false
       - name: openapi-route
         paths:
         - /api/openapi.json
+        methods:
+        - GET
+        strip_path: false
+      - name: docs-route
+        paths:
+        - /docs
+        - /redoc
         methods:
         - GET
         strip_path: false

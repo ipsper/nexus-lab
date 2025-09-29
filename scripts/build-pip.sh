@@ -138,9 +138,7 @@ install_build_tools() {
 build_package() {
     print_info "Bygger pip-paketet..."
     
-    # Kopiera requirements.txt från app/ till build-pip/
-    print_info "Kopierar requirements.txt från app/ till build-pip/..."
-    cp "$PROJECT_ROOT/app/requirements.txt" "$PROJECT_ROOT/build-pip/requirements.txt"
+    # Requirements.txt finns redan i build-pip/nexus_repository_api/
     
     python -m build
     
@@ -180,10 +178,7 @@ clean_build() {
         print_info "Tar bort virtuell miljö"
     fi
     
-    if [ -f "requirements.txt" ]; then
-        rm -f requirements.txt
-        print_info "Tar bort kopierad requirements.txt"
-    fi
+    # Inga kopierade filer att rensa
     
     print_success "Build-artefakter rensade"
 }
