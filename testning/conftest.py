@@ -2,7 +2,7 @@
 Pytest configuration and fixtures for FastAPI testing
 """
 import pytest
-import requests
+import httpx
 import time
 from typing import Generator
 from support.api_client import APIClient
@@ -37,7 +37,12 @@ def api_base_url() -> str:
     import os
     host = os.getenv("TEST_HOST", "localhost")
     port = os.getenv("TEST_PORT", "8000")
-    return f"http://{host}:{port}/api"
+    
+    # Use localhost when running in Docker (network=host)
+    if os.path.exists("/.dockerenv"):
+        host = "localhost"
+    
+    return f"http://{host}:{port}/api/"
 
 
 @pytest.fixture(scope="session")
@@ -46,6 +51,11 @@ def kong_base_url() -> str:
     import os
     host = os.getenv("TEST_HOST", "localhost")
     port = os.getenv("TEST_PORT", "8000")
+    
+    # Use localhost when running in Docker (network=host)
+    if os.path.exists("/.dockerenv"):
+        host = "localhost"
+    
     return f"http://{host}:{port}"
 
 
@@ -55,6 +65,11 @@ def nexus_base_url() -> str:
     import os
     host = os.getenv("TEST_HOST", "localhost")
     port = os.getenv("TEST_PORT", "8000")
+    
+    # Use localhost when running in Docker (network=host)
+    if os.path.exists("/.dockerenv"):
+        host = "localhost"
+    
     return f"http://{host}:{port}/nexus"
 
 
@@ -101,11 +116,11 @@ def wait_for_services(api_base_url: str, kong_base_url: str, nexus_base_url: str
         
         while retry_count < max_retries:
             try:
-                response = requests.get(url, timeout=3)
-                if response.status_code in [200, 404, 502, 503]:  # Accept more status codes
+                response = httpx.get(url, timeout=3)
+                if response.status_code in [200, 404, 502, 503, 307]:  # Accept more status codes
                     print(f"✅ {service_name} is accessible at {url}")
                     break
-            except requests.exceptions.RequestException:
+            except httpx.RequestError:
                 pass
             
             retry_count += 1

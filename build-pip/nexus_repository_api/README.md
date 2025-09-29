@@ -1,6 +1,6 @@
 # Nexus Repository Manager API
 
-En FastAPI-baserad webbapplikation som tillhandahåller ett REST API för att hantera Nexus Repository Manager. Applikationen körs på port 3000 och kan deployeras i en Docker-container.
+En FastAPI-baserad webbapplikation som tillhandahåller ett REST API för att hantera Nexus Repository Manager. Applikationen körs på port 8000 och kan deployeras i en Docker-container.
 
 ## Funktioner
 
@@ -35,8 +35,8 @@ En FastAPI-baserad webbapplikation som tillhandahåller ett REST API för att ha
    ```
 
 3. **Öppna API-dokumentation**:
-   - Swagger UI: http://localhost:3000/docs
-   - ReDoc: http://localhost:3000/redoc
+   - Swagger UI: http://localhost:8000/api/docs
+   - ReDoc: http://localhost:8000/api/redoc
 
 ### Med Docker
 
@@ -51,75 +51,187 @@ En FastAPI-baserad webbapplikation som tillhandahåller ett REST API för att ha
    docker build -t nexus-api .
    
    # Kör container
-   docker run -p 3000:3000 nexus-api
+   docker run -p 8000:8000 nexus-api
    ```
 
 ## API Endpoints
 
 ### Grundläggande
 
-- `GET /` - Root endpoint med grundläggande information
-- `GET /health` - Health check endpoint
-- `GET /docs` - Swagger UI dokumentation
-- `GET /redoc` - ReDoc dokumentation
+- `GET /api/` - Root endpoint med grundläggande information
+- `GET /api/health` - Health check endpoint
+- `GET /api/docs` - Swagger UI dokumentation
+- `GET /api/redoc` - ReDoc dokumentation
 
 ### Repositories
 
-- `GET /repositories` - Hämta alla repositories
-- `GET /repositories/{name}` - Hämta specifik repository
-- `POST /repositories` - Skapa ny repository
+- `GET /api/repositories/` - Hämta alla repositories
+- `GET /api/repositories/{name}` - Hämta specifik repository
+- `POST /api/repositories/` - Skapa ny repository
 
 ### Paket
 
-- `GET /packages` - Hämta alla paket
-- `POST /packages` - Ladda upp paket
-- `GET /packages/{name}` - Hämta paket efter namn
-- `GET /repositories/{name}/packages` - Hämta paket från specifik repository
+- `GET /api/packages/` - Hämta alla paket
+- `POST /api/packages/` - Ladda upp paket
+- `GET /api/packages/{name}` - Hämta paket efter namn
+- `GET /api/packages/repositories/{name}/packages` - Hämta paket från specifik repository
 
 ### Statistik och konfiguration
 
-- `GET /stats` - Hämta statistik
-- `GET /formats` - Hämta stödda format
-- `GET /config` - Hämta konfiguration
+- `GET /api/stats` - Hämta statistik
+- `GET /api/formats` - Hämta stödda format
+- `GET /api/config` - Hämta konfiguration
+- `GET /api/pip-package` - Hämta pip-paket information
 
 ## Exempel på användning
 
-### Hämta alla repositories
+### Grundläggande API-anrop
 
 ```bash
-curl http://localhost:3000/repositories
+# Health check
+curl -X GET "http://localhost:8000/api/health" \
+  -H "accept: application/json"
+
+# Root endpoint
+curl -X GET "http://localhost:8000/api/" \
+  -H "accept: application/json"
+
+# API-konfiguration
+curl -X GET "http://localhost:8000/api/config" \
+  -H "accept: application/json"
+
+# Pip-paket information
+curl -X GET "http://localhost:8000/api/pip-package" \
+  -H "accept: application/json"
+
+# Statistik
+curl -X GET "http://localhost:8000/api/stats" \
+  -H "accept: application/json"
+
+# Stödda format
+curl -X GET "http://localhost:8000/api/formats" \
+  -H "accept: application/json"
 ```
 
-### Skapa ny repository
+### Repository-hantering
 
 ```bash
-curl -X POST http://localhost:3000/repositories \
+# Hämta alla repositories
+curl -X GET "http://localhost:8000/api/repositories/" \
+  -H "accept: application/json"
+
+# Hämta specifik repository
+curl -X GET "http://localhost:8000/api/repositories/pypi-hosted" \
+  -H "accept: application/json"
+
+# Skapa ny repository (POST med JSON-data)
+curl -X POST "http://localhost:8000/api/repositories/" \
+  -H "accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "maven-hosted",
+    "name": "test-repo",
+    "format": "pypi",
     "type": "hosted",
-    "format": "maven",
-    "url": "http://localhost:8081/repository/maven-hosted/",
-    "status": "active"
+    "description": "Test repository"
   }'
 ```
 
-### Ladda upp paket
+### Paket-hantering
 
 ```bash
-curl -X POST http://localhost:3000/packages \
+# Hämta alla paket
+curl -X GET "http://localhost:8000/api/packages/" \
+  -H "accept: application/json"
+
+# Hämta specifikt paket
+curl -X GET "http://localhost:8000/api/packages/requests" \
+  -H "accept: application/json"
+
+# Hämta paket från specifik repository
+curl -X GET "http://localhost:8000/api/packages/repositories/pypi-hosted/packages" \
+  -H "accept: application/json"
+
+# Skapa nytt paket (POST med JSON-data)
+curl -X POST "http://localhost:8000/api/packages/" \
+  -H "accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "example-package",
+    "name": "test-package",
     "version": "1.0.0",
-    "repository": "pypi-hosted"
+    "repository": "pypi-hosted",
+    "description": "Test package"
   }'
 ```
 
-### Hämta statistik
+### Swagger UI och dokumentation
 
 ```bash
-curl http://localhost:3000/stats
+# Öppna Swagger UI i webbläsare
+open http://localhost:8000/api/docs
+
+# Hämta OpenAPI specifikation
+curl -X GET "http://localhost:8000/api/openapi.json" \
+  -H "accept: application/json" | jq '.'
+
+# Hämta ReDoc dokumentation
+curl -X GET "http://localhost:8000/api/redoc" \
+  -H "accept: text/html"
+```
+
+### Avancerade exempel
+
+```bash
+# Testa med verbose output för debugging
+curl -v -X GET "http://localhost:8000/api/health" \
+  -H "accept: application/json"
+
+# Testa med timeout
+curl --max-time 10 -X GET "http://localhost:8000/api/stats" \
+  -H "accept: application/json"
+
+# Testa med custom headers
+curl -X GET "http://localhost:8000/api/config" \
+  -H "accept: application/json" \
+  -H "User-Agent: MyApp/1.0" \
+  -H "X-API-Key: your-api-key"
+
+# Spara response till fil
+curl -X GET "http://localhost:8000/api/stats" \
+  -H "accept: application/json" \
+  -o stats.json
+```
+
+### Felsöknings-exempel
+
+```bash
+# Testa anslutning (endast status)
+curl -I "http://localhost:8000/api/health"
+
+# Testa med olika HTTP-metoder
+curl -X OPTIONS "http://localhost:8000/api/health" \
+  -H "accept: application/json"
+
+# Testa med felaktig data för att se error handling
+curl -X POST "http://localhost:8000/api/repositories/" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"invalid": "data"}'
+
+# Testa 404-fel
+curl -X GET "http://localhost:8000/api/nonexistent" \
+  -H "accept: application/json"
+```
+
+### Batch-testning
+
+```bash
+# Testa alla endpoints i en loop
+for endpoint in health config stats formats repositories packages; do
+  echo "Testing /api/$endpoint"
+  curl -s -X GET "http://localhost:8000/api/$endpoint" \
+    -H "accept: application/json" | jq '.'
+  echo "---"
+done
 ```
 
 ## Konfiguration
@@ -205,7 +317,7 @@ spec:
       - name: nexus-api
         image: nexus-api:latest
         ports:
-        - containerPort: 3000
+        - containerPort: 8000
         env:
         - name: NEXUS_URL
           value: "http://nexus-service:8081"
@@ -219,8 +331,8 @@ spec:
   selector:
     app: nexus-api
   ports:
-  - port: 3000
-    targetPort: 3000
+  - port: 8000
+    targetPort: 8000
   type: NodePort
 ```
 
@@ -237,8 +349,8 @@ docker stack deploy -c docker-compose.yml nexus-api
 
 1. **Port redan används**:
    ```bash
-   # Kontrollera vilken process som använder port 3000
-   lsof -i :3000
+   # Kontrollera vilken process som använder port 8000
+   lsof -i :8000
    ```
 
 2. **Container startar inte**:
@@ -250,7 +362,7 @@ docker stack deploy -c docker-compose.yml nexus-api
 3. **API svarar inte**:
    ```bash
    # Kontrollera health check
-   curl http://localhost:3000/health
+   curl http://localhost:8000/api/health
    ```
 
 ### Loggar

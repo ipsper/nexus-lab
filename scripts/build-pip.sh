@@ -137,6 +137,9 @@ install_build_tools() {
 # Bygg pip-paketet
 build_package() {
     print_info "Bygger pip-paketet..."
+    
+    # Requirements.txt finns redan i build-pip/nexus_repository_api/
+    
     python -m build
     
     print_success "Wheel-paket byggt: dist/nexus_repository_api-1.0.0-py3-none-any.whl"
@@ -174,6 +177,8 @@ clean_build() {
         rm -rf venv/
         print_info "Tar bort virtuell miljö"
     fi
+    
+    # Inga kopierade filer att rensa
     
     print_success "Build-artefakter rensade"
 }

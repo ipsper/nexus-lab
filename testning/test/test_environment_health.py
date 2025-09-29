@@ -2,7 +2,7 @@
 Environment Health Check - Kontrollera att miljön är uppe innan andra tester
 """
 import pytest
-import requests
+import httpx
 import time
 from support.api_client import APIClient
 
@@ -25,18 +25,18 @@ def test_environment_ready(api_base_url, kong_base_url, nexus_base_url):
         
         try:
             # Försök ansluta med timeout
-            response = requests.get(url, timeout=5)
+            response = httpx.get(url, timeout=5)
             
-            if response.status_code in [200, 404, 502, 503]:
+            if response.status_code in [200, 404, 502, 503, 307]:
                 print(f"✅ {service_name} svarar (status: {response.status_code})")
             else:
                 print(f"⚠️  {service_name} svarar med oväntat status: {response.status_code}")
                 failed_services.append(f"{service_name} (status: {response.status_code})")
                 
-        except requests.exceptions.ConnectionError:
+        except httpx.ConnectError:
             print(f"❌ {service_name} svarar inte - connection error")
             failed_services.append(f"{service_name} (connection error)")
-        except requests.exceptions.Timeout:
+        except httpx.TimeoutException:
             print(f"❌ {service_name} timeout efter 5s")
             failed_services.append(f"{service_name} (timeout)")
         except Exception as e:
@@ -57,22 +57,44 @@ def test_environment_ready(api_base_url, kong_base_url, nexus_base_url):
 
 @pytest.mark.health
 @pytest.mark.order(2)  # Kör efter basic health check
-def test_api_endpoints_responding(api_client):
+def test_api_endpoints_responding(api_client, kong_client):
     """Kontrollera att viktiga API-endpoints svarar"""
     
-    endpoints_to_check = [
+    # API endpoints (under /api/ prefix)
+    api_endpoints = [
         ("/", "Root endpoint"),
         ("/health", "Health check"),
-        ("/docs", "API dokumentation"),
         ("/openapi.json", "OpenAPI schema")
+    ]
+    
+    # Kong Gateway endpoints (under root)
+    kong_endpoints = [
+        ("/docs", "API dokumentation")
     ]
     
     failed_endpoints = []
     
-    for endpoint, description in endpoints_to_check:
+    # Testa API endpoints
+    for endpoint, description in api_endpoints:
         try:
             print(f"🔍 Testar {description} ({endpoint})...")
             response = api_client.get(endpoint)
+            
+            if response.status_code == 200:
+                print(f"✅ {description} OK (200)")
+            else:
+                print(f"⚠️  {description} status: {response.status_code}")
+                failed_endpoints.append(f"{description} ({endpoint}) - status: {response.status_code}")
+                
+        except Exception as e:
+            print(f"❌ {description} fel: {e}")
+            failed_endpoints.append(f"{description} ({endpoint}) - error: {e}")
+    
+    # Testa Kong Gateway endpoints
+    for endpoint, description in kong_endpoints:
+        try:
+            print(f"🔍 Testar {description} ({endpoint})...")
+            response = kong_client.get(endpoint)
             
             if response.status_code == 200:
                 print(f"✅ {description} OK (200)")

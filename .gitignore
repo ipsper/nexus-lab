@@ -32,6 +32,7 @@ build-pip/build/
 build-pip/*.egg-info/
 build-pip/.pytest_cache/
 build-pip/.pypirc.tmp
+build-pip/requirements.txt
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

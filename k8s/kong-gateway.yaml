@@ -59,10 +59,17 @@ data:
         paths:
         - /api
         - /api/
-        strip_path: true
+        strip_path: false
       - name: openapi-route
         paths:
         - /api/openapi.json
+        methods:
+        - GET
+        strip_path: false
+      - name: docs-route
+        paths:
+        - /docs
+        - /redoc
         methods:
         - GET
         strip_path: false
