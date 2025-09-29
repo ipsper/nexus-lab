@@ -14,12 +14,17 @@ from support.fastapi_gui_support import (
 pytestmark = pytest.mark.asyncio(mode="off")
 
 
+def get_docs_url(api_base_url: str) -> str:
+    """Hjälpfunktion för att få rätt URL för /docs (inte under /api/)"""
+    return api_base_url.replace("/api/", "/")
+
+
 @pytest.mark.gui
 @pytest.mark.parametrize("browser_type", ["chromium", "firefox"])
 def test_docs_page_loads(api_base_url, browser_type):
     """Testa att API-dokumentationssidan laddas i olika browsers"""
     with PlaywrightClient(browser_type=browser_type, headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         assert client.is_element_visible(".swagger-ui")
         assert "Nexus Repository Manager API" in client.get_title()
@@ -29,7 +34,8 @@ def test_docs_page_loads(api_base_url, browser_type):
 def test_root_page_loads(api_base_url):
     """Testa att root-sidan laddas korrekt"""
     with PlaywrightClient(headless=True) as client:
-        client.navigate_to(f"{api_base_url}/")
+        # Root-sidan finns inte, testa istället att /docs fungerar
+        client.navigate_to(f"{get_docs_url(api_base_url)}/docs")
         client.wait_for_load_state()
         assert "Nexus Repository Manager API" in client.get_page_source()
 
@@ -38,7 +44,7 @@ def test_root_page_loads(api_base_url):
 def test_redoc_page_loads(api_base_url):
     """Testa att ReDoc-dokumentationssidan laddas"""
     with PlaywrightClient(headless=True) as client:
-        client.navigate_to(f"{api_base_url}/redoc")
+        client.navigate_to(f"{get_docs_url(api_base_url)}/redoc")
         client.wait_for_load_state()
         
         # ReDoc använder olika selektorer - testa flera
@@ -69,7 +75,7 @@ def test_redoc_page_loads(api_base_url):
 def test_health_endpoint_via_swagger(api_base_url):
     """Testa att köra health endpoint via Swagger UI"""
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         # Kontrollera att vi kan hitta health endpoint
@@ -141,7 +147,7 @@ def test_health_endpoint_via_swagger(api_base_url):
 def test_repositories_endpoint_via_swagger(api_base_url):
     """Testa repositories endpoint via Swagger UI"""
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         if check_endpoint_visible(client, "/repositories"):
@@ -198,7 +204,7 @@ def test_repositories_endpoint_via_swagger(api_base_url):
 def test_api_endpoints_visible(api_base_url):
     """Testa att viktiga endpoints syns i dokumentationen"""
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         expected_endpoints = ["/health", "/repositories", "/packages", "/stats", "/formats", "/config"]
@@ -229,7 +235,7 @@ def test_responsive_design(api_base_url, viewport_size):
     """Testa responsiv design av dokumentationen"""
     with PlaywrightClient(headless=True) as client:
         set_viewport_size(client, viewport_size["width"], viewport_size["height"])
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         assert client.is_element_visible(".swagger-ui")
 
@@ -238,7 +244,7 @@ def test_responsive_design(api_base_url, viewport_size):
 def test_error_page_handling(api_base_url):
     """Testa felhantering för icke-existerande sidor"""
     with PlaywrightClient(headless=True) as client:
-        client.navigate_to(f"{api_base_url}/nonexistent")
+        client.navigate_to(f"{get_docs_url(api_base_url)}/nonexistent")
         client.wait_for_load_state()
         
         page_content = client.get_page_source()
@@ -250,7 +256,7 @@ def test_swagger_ui_performance(api_base_url):
     """Testa prestanda för Swagger UI-laddning"""
     with PlaywrightClient(headless=True) as client:
         start_time = time.time()
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         load_time = time.time() - start_time
         
@@ -262,7 +268,7 @@ def test_swagger_ui_performance(api_base_url):
 def test_multiple_endpoints_workflow(api_base_url):
     """Testa att köra flera endpoints i sekvens - mer robust"""
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         endpoints_to_test = ["/health", "/repositories", "/stats", "/formats"]
@@ -326,7 +332,7 @@ def test_browser_compatibility(api_base_url):
     
     for browser_type in browsers:
         with PlaywrightClient(browser_type=browser_type, headless=True) as client:
-            navigate_to_docs(client, api_base_url)
+            navigate_to_docs(client, get_docs_url(api_base_url))
             wait_for_swagger_ui_loaded(client)
             assert client.is_element_visible(".swagger-ui"), f"Swagger UI fungerar inte i {browser_type}"
             
@@ -344,7 +350,7 @@ def test_browser_compatibility(api_base_url):
 def test_swagger_ui_navigation(api_base_url):
     """Testa navigation inom Swagger UI"""
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         # Scrolla ned för att se alla endpoints
@@ -368,7 +374,7 @@ def test_full_workflow(api_base_url):
     """Testa komplett GUI-workflow - mer robust"""
     with PlaywrightClient(headless=True) as client:
         # 1. Ladda docs
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         # 2. Kontrollera att åtminstone några endpoints finns
@@ -401,7 +407,7 @@ def test_full_workflow(api_base_url):
         
         # 4. Testa ReDoc om möjligt
         try:
-            client.navigate_to(f"{api_base_url}/redoc")
+            client.navigate_to(f"{get_docs_url(api_base_url)}/redoc")
             client.wait_for_load_state()
             assert "Nexus Repository Manager API" in client.get_title()
             print("✅ ReDoc fungerar")
@@ -413,7 +419,7 @@ def test_full_workflow(api_base_url):
 def test_swagger_ui_basic_functionality(api_base_url):
     """Grundläggande Swagger UI-funktionalitet utan specifika selektorer"""
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         # Kontrollera grundläggande Swagger UI-element
@@ -441,7 +447,7 @@ def test_swagger_ui_basic_functionality(api_base_url):
 def test_swagger_ui_content_validation(api_base_url):
     """Validera att Swagger UI innehåller förväntat innehåll"""
     with PlaywrightClient(headless=True) as client:
-        navigate_to_docs(client, api_base_url)
+        navigate_to_docs(client, get_docs_url(api_base_url))
         wait_for_swagger_ui_loaded(client)
         
         page_content = client.get_page_source()
