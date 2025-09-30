@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-white text-gray-900;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-6 py-3 rounded-none font-semibold text-sm uppercase tracking-wide transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-800 hover:bg-gray-200 focus:ring-gray-500 border border-gray-300;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white focus:ring-blue-500;
+  }
+  
+  .card {
+    @apply bg-white shadow-lg border-0 p-8;
+  }
+  
+  .card-hover {
+    @apply hover:shadow-xl transition-shadow duration-300;
+  }
+  
+  .input {
+    @apply w-full px-4 py-3 border-2 border-gray-200 rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors;
+  }
+  
+  .section-header {
+    @apply text-4xl font-bold text-gray-900 mb-4;
+  }
+  
+  .section-subtitle {
+    @apply text-lg text-gray-600 mb-8;
+  }
+  
+  .hero-gradient {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  }
+  
+  .service-card {
+    @apply bg-white p-8 shadow-lg hover:shadow-xl transition-all duration-300 border-l-4 border-blue-600;
+  }
+  
+  .nav-link {
+    @apply text-gray-700 hover:text-blue-600 font-medium transition-colors duration-200 relative;
+  }
+  
+  .nav-link::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-blue-600 transition-all duration-200;
+  }
+  
+  .nav-link:hover::after {
+    @apply w-full;
+  }
+}

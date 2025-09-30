@@ -36,9 +36,12 @@ show_help() {
     echo "Användning: $0 [KOMMANDO]"
     echo ""
     echo "Kommandon:"
-    echo "  create           Skapa allt (kluster + applikationer) - KOMPLETT SETUP"
-    echo "  install-all-gitlab Skapa allt med GitLab container - KOMPLETT SETUP"
-    echo "  install-all-local Skapa allt med lokal container - KOMPLETT SETUP"
+    echo "  setup            Komplett setup (create + deploy-all) - LOKAL BUILD"
+    echo "  create           Skapa Kind-kluster och grundläggande komponenter"
+    echo "  deploy-all       Deploya allt (backend + frontend) - LOKAL BUILD"
+    echo "  deploy-backend   Deploya bara backend - LOKAL BUILD"
+    echo "  deploy-frontend  Deploya bara frontend - LOKAL BUILD"
+    echo "  start-frontend   Starta bara Frontend utvecklingsserver"
     echo "  restart-api-gitlab Starta om API med GitLab container (behåll kluster)"
     echo "  restart-api-local Starta om API med lokal container (behåll kluster)"
     echo "  delete           Ta bort allt och rensa systemet - REN START"
@@ -51,13 +54,16 @@ show_help() {
     echo "  restart-nexus    Starta om Nexus"
     echo "  build-api        Bygg API-applikation Docker image (lokal)"
     echo "  build-api-gitlab Bygg API-applikation Docker image (GitLab)"
+    echo "  build-frontend   Bygg Frontend Docker image"
     echo "  rebuild-api      Bygg pip-paket, Docker image och ladda till Kind (komplett)"
     echo "  load-image       Ladda Docker image till Kind-klustret"
     echo "  deploy-api       Deploya API-applikation till klustret (lokal)"
     echo "  deploy-api-gitlab Deploya API-applikation till klustret (GitLab)"
+    echo "  deploy-frontend  Deploya Frontend till klustret"
     echo "  start-api        Starta API-applikation (alias för deploy-api)"
     echo "  start-api-gitlab Starta API-applikation (alias för deploy-api-gitlab)"
     echo "  stop-api         Stoppa API-applikation"
+    echo "  stop-frontend    Stoppa Frontend"
     echo "  get-logs         Visa Nexus-loggar"
     echo "  get-password     Hämta admin-lösenord"
     echo "  check-status     Kontrollera status"
@@ -72,8 +78,12 @@ show_help() {
     echo "  help             Visa denna hjälp"
     echo ""
     echo "Exempel:"
-    echo "  $0 install-all-gitlab    # Komplett setup med GitLab container"
-    echo "  $0 install-all-local     # Komplett setup med lokal container"
+    echo "  $0 setup                 # Komplett setup (create + deploy-all)"
+    echo "  $0 create                # Skapa kluster och grundkomponenter"
+    echo "  $0 deploy-all            # Deploya backend + frontend (lokal build)"
+    echo "  $0 deploy-backend        # Deploya bara backend (lokal build)"
+    echo "  $0 deploy-frontend       # Deploya bara frontend (lokal build)"
+    echo "  $0 start-frontend        # Starta frontend utvecklingsserver"
     echo "  $0 restart-api-gitlab    # Starta om API med GitLab container"
     echo "  $0 restart-api-local     # Starta om API med lokal container"
     echo "  $0 build-api-gitlab      # Bygg bara GitLab container"
@@ -545,6 +555,27 @@ build_api_gitlab() {
     print_success "API Docker image byggd (GitLab)!"
 }
 
+# Bygg Frontend Docker image
+build_frontend() {
+    print_info "Bygger Frontend Docker image..."
+    
+    if [ ! -d "frontend" ]; then
+        print_error "Frontend-mappen finns inte. Kör från projektets root-katalog."
+        exit 1
+    fi
+    
+    # Gå till frontend-mappen
+    cd frontend
+    
+    # Bygg Frontend Docker image
+    docker build --no-cache -t nexus-frontend:latest .
+    
+    # Gå tillbaka till root-mappen
+    cd ..
+    
+    print_success "Frontend Docker image byggd!"
+}
+
 # Ladda Docker image till Kind-klustret
 load_image() {
     check_kubectl
@@ -797,6 +828,116 @@ stop_api() {
     print_success "API stoppad!"
 }
 
+# Deploya Frontend
+deploy_frontend() {
+    check_kubectl
+    print_info "Deployar Frontend till Kind-klustret..."
+    
+    # Kontrollera om klustret finns
+    if ! kind get clusters | grep -q nexus-cluster; then
+        print_error "Kind-klustret 'nexus-cluster' finns inte. Skapa det först med 'create-cluster'."
+        exit 1
+    fi
+    
+    # Kontrollera om Frontend image finns
+    if ! docker images | grep -q nexus-frontend:latest; then
+        print_warning "Frontend Docker image finns inte. Bygger den först..."
+        build_frontend
+    fi
+    
+    # Ladda image till Kind-klustret
+    kind load docker-image nexus-frontend:latest --name nexus-cluster
+    
+    # Deploya Frontend
+    print_info "Deployar Frontend-applikation..."
+    kubectl apply -f k8s/nexus-frontend-deployment.yaml
+    
+    print_info "Väntar på att Frontend startar..."
+    # Vänta lite för att podden ska skapas
+    sleep 10
+    
+    # Kontrollera om podden finns innan vi väntar
+    if kubectl get pods -n nexus-frontend -l app=nexus-frontend --no-headers 2>/dev/null | grep -q .; then
+        kubectl wait --for=condition=ready pod -l app=nexus-frontend -n nexus-frontend --timeout=300s
+    else
+        print_warning "Frontend pod hittades inte, kontrollerar status..."
+        kubectl get pods -n nexus-frontend
+        print_info "Fortsätter utan att vänta på pod-ready..."
+    fi
+    
+    print_success "Frontend deployad!"
+    print_info "Frontend är tillgänglig via Kong Gateway på http://localhost:8000"
+}
+
+# Stoppa Frontend
+stop_frontend() {
+    check_kubectl
+    print_info "Stoppar Frontend-applikation..."
+    
+    kubectl scale deployment nexus-frontend --replicas=0 -n nexus-frontend
+    
+    print_success "Frontend stoppad!"
+}
+
+# Deploya allt (backend + frontend)
+deploy_all() {
+    print_info "🚀 Deployar allt (backend + frontend) - LOKALT..."
+    print_info "Detta kommer att:"
+    print_info "  1. Bygga backend Docker image (lokal)"
+    print_info "  2. Deploya backend till klustret"
+    print_info "  3. Bygga frontend Docker image (lokal)"
+    print_info "  4. Deploya frontend till klustret"
+    print_info "  5. Visa status"
+    echo ""
+    
+    # Steg 1: Bygga och deploya backend
+    print_info "Steg 1/4: Bygger och deployar backend (lokal)..."
+    build_api
+    deploy_api
+    
+    # Steg 2: Bygga och deploya frontend
+    print_info "Steg 2/4: Bygger och deployar frontend (lokal)..."
+    build_frontend
+    deploy_frontend
+    
+    # Steg 3: Visa status
+    print_info "Steg 3/4: Visar status..."
+    echo ""
+    print_success "🎉 Allt deployat (lokal build)!"
+    echo ""
+    print_info "📋 Tjänster tillgängliga:"
+    print_info "  • Frontend: http://localhost:8000"
+    print_info "  • Backend API: http://localhost:8000/api"
+    print_info "  • API Dokumentation: http://localhost:8000/docs"
+    print_info "  • Nexus Repository Manager: http://localhost:8081"
+    echo ""
+}
+
+# Deploya bara backend
+deploy_backend() {
+    print_info "🚀 Deployar backend (lokal)..."
+    print_info "Detta kommer att:"
+    print_info "  1. Bygga backend Docker image (lokal)"
+    print_info "  2. Deploya backend till klustret"
+    print_info "  3. Visa status"
+    echo ""
+    
+    # Steg 1: Bygga och deploya backend
+    print_info "Steg 1/2: Bygger och deployar backend (lokal)..."
+    build_api
+    deploy_api
+    
+    # Steg 2: Visa status
+    print_info "Steg 2/2: Visar status..."
+    echo ""
+    print_success "🎉 Backend deployat (lokal build)!"
+    echo ""
+    print_info "📋 Backend tjänster tillgängliga:"
+    print_info "  • Backend API: http://localhost:8000/api"
+    print_info "  • API Dokumentation: http://localhost:8000/docs"
+    echo ""
+}
+
 # Starta om API
 restart_api() {
     check_kubectl
@@ -818,63 +959,100 @@ restart_api() {
     print_success "API omstartad!"
 }
 
-# Komplett setup - skapa allt
+# Komplett setup - skapa kluster och deploya allt
+setup_all() {
+    print_info "🚀 Komplett setup - skapar kluster och deployar allt (LOKAL BUILD)..."
+    print_info "Detta kommer att:"
+    print_info "  1. Skapa Kind-kluster och grundkomponenter"
+    print_info "  2. Bygga backend Docker image (lokal)"
+    print_info "  3. Deploya backend till klustret"
+    print_info "  4. Bygga frontend Docker image (lokal)"
+    print_info "  5. Deploya frontend till klustret"
+    print_info "  6. Visa status och lösenord"
+    echo ""
+    
+    # Steg 1: Skapa kluster och grundkomponenter
+    print_info "Steg 1/6: Skapar kluster och grundkomponenter..."
+    create_all
+    
+    # Steg 2: Deploya backend
+    print_info "Steg 2/6: Deployar backend (lokal build)..."
+    build_api
+    deploy_api
+    
+    # Steg 3: Deploya frontend
+    print_info "Steg 3/6: Deployar frontend (lokal build)..."
+    build_frontend
+    deploy_frontend
+    
+    # Steg 4: Visa status
+    print_info "Steg 4/6: Visar status..."
+    echo ""
+    print_success "🎉 Komplett setup klar (lokal build)!"
+    echo ""
+    print_info "📋 Tjänster tillgängliga:"
+    print_info "  • Frontend: http://localhost:8000"
+    print_info "  • Backend API: http://localhost:8000/api"
+    print_info "  • API Dokumentation: http://localhost:8000/docs"
+    print_info "  • Nexus Repository Manager: http://localhost:8081"
+    echo ""
+    print_info "🔧 Användbara kommandon:"
+    print_info "  • Kontrollera status: ./scripts/run.sh check-status"
+    print_info "  • Visa loggar: ./scripts/run.sh get-logs"
+    print_info "  • Ta bort allt: ./scripts/run.sh delete"
+    echo ""
+}
+
+# Skapa Kind-kluster och grundläggande komponenter
 create_all() {
-    print_info "🚀 Startar komplett setup av Nexus Repository Manager + API..."
+    print_info "🚀 Skapar Kind-kluster och grundläggande komponenter..."
     print_info "Detta kommer att:"
     print_info "  1. Installera Kind (om inte redan installerat)"
     print_info "  2. Skapa Kind-kluster"
     print_info "  3. Deploya Nexus Repository Manager"
-    print_info "  4. Bygga API Docker image"
-    print_info "  5. Deploya API-applikation"
-    print_info "  6. Visa admin-lösenord och status"
+    print_info "  4. Deploya Kong Gateway"
+    print_info "  5. Visa status"
     echo ""
     
     # Steg 1: Installera Kind
     if ! command -v kind &> /dev/null; then
-        print_info "Steg 1/6: Installerar Kind..."
+        print_info "Steg 1/5: Installerar Kind..."
         install_kind
     else
-        print_success "Steg 1/6: Kind redan installerat ✓"
+        print_success "Steg 1/5: Kind redan installerat ✓"
     fi
     
     # Steg 2: Skapa kluster
-    print_info "Steg 2/6: Skapar Kind-kluster..."
+    print_info "Steg 2/5: Skapar Kind-kluster..."
     create_cluster
     
     # Steg 3: Deploya Nexus
-    print_info "Steg 3/6: Deployar Nexus Repository Manager..."
+    print_info "Steg 3/5: Deployar Nexus Repository Manager..."
     deploy_nexus
     
-    # Steg 4: Bygga API
-    print_info "Steg 4/6: Bygger API Docker image (GitLab)..."
-    build_api_gitlab
+    # Steg 4: Deploya Kong Gateway
+    print_info "Steg 4/5: Deployar Kong Gateway..."
+    # Kong deployas redan i deploy_nexus, men vi kan visa status
     
-    # Steg 5: Deploya API
-    print_info "Steg 5/6: Deployar API-applikation (GitLab)..."
-    deploy_api_gitlab
-    
-    # Steg 6: Visa status och lösenord
-    print_info "Steg 6/6: Visar status och admin-lösenord..."
+    # Steg 5: Visa status
+    print_info "Steg 5/5: Visar status..."
     echo ""
-    print_success "🎉 Komplett setup klar!"
+    print_success "🎉 Kind-kluster och grundkomponenter skapade!"
     echo ""
-    print_info "📋 Tjänster tillgängliga via Kong Gateway:"
-    print_info "  • Nexus Repository Manager: http://localhost:8000/nexus"
-    print_info "  • FastAPI Applikation: http://localhost:8000/api"
-    print_info "  • API Dokumentation: http://localhost:8000/api/docs"
+    print_info "📋 Grundläggande tjänster tillgängliga:"
+    print_info "  • Nexus Repository Manager: http://localhost:8081"
     print_info "  • Kong Admin API: http://localhost:8001"
-    print_info "  • Kong Admin GUI: http://localhost:8002"
     echo ""
     
     # Visa admin-lösenord
     get_password
     
     echo ""
-    print_info "🔧 Användbara kommandon:"
+    print_info "🔧 Nästa steg:"
+    print_info "  • Deploya backend: ./scripts/run.sh deploy-backend"
+    print_info "  • Deploya frontend: ./scripts/run.sh deploy-frontend"
+    print_info "  • Deploya allt: ./scripts/run.sh deploy-all"
     print_info "  • Kontrollera status: ./scripts/run.sh check-status"
-    print_info "  • Visa loggar: ./scripts/run.sh get-logs"
-    print_info "  • Ta bort allt: ./scripts/run.sh delete"
     echo ""
 }
 
@@ -1198,6 +1376,85 @@ EOF
     echo ""
 }
 
+# Starta Frontend utvecklingsserver
+start_frontend() {
+    print_info "🎨 Startar Frontend utvecklingsserver..."
+    
+    # Kontrollera om frontend-mappen finns
+    if [ ! -d "frontend" ]; then
+        print_error "Frontend-mappen finns inte. Kör från projektets root-katalog."
+        exit 1
+    fi
+    
+    # Kontrollera om Node.js är installerat
+    if ! command -v node &> /dev/null; then
+        print_error "Node.js är inte installerat. Installera Node.js 18+ från https://nodejs.org/"
+        exit 1
+    fi
+    
+    # Kontrollera Node.js version
+    NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+    if [ "$NODE_VERSION" -lt 18 ]; then
+        print_warning "Node.js version $NODE_VERSION hittades, men version 18+ rekommenderas"
+    fi
+    
+    # Gå till frontend-mappen
+    cd frontend
+    
+    # Kontrollera om node_modules finns
+    if [ ! -d "node_modules" ]; then
+        print_info "Installerar Frontend dependencies..."
+        npm install
+        if [ $? -ne 0 ]; then
+            print_error "Misslyckades att installera Frontend dependencies"
+            exit 1
+        fi
+        print_success "Frontend dependencies installerade ✓"
+    fi
+    
+    # Skapa .env.local om den inte finns
+    if [ ! -f ".env.local" ]; then
+        print_info "Skapar Frontend konfigurationsfil..."
+        cat > .env.local << EOF
+VITE_API_URL=http://localhost:8000/api
+EOF
+        print_success "Frontend konfiguration skapad ✓"
+    fi
+    
+    # Kontrollera att backend API svarar
+    print_info "Kontrollerar backend-anslutning..."
+    if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
+        print_success "Backend API är tillgängligt ✓"
+    else
+        print_warning "Backend API svarar inte på http://localhost:8000/api/health"
+        print_info "Frontend kommer att starta ändå, men API-anrop kan misslyckas"
+    fi
+    
+    print_success "Frontend utvecklingsserver startar..."
+    print_info "Frontend kommer att vara tillgänglig på: http://localhost:3000"
+    print_info "Tryck Ctrl+C för att stoppa servern"
+    echo ""
+    
+    # Starta utvecklingsserver i bakgrunden
+    npm run dev &
+    FRONTEND_PID=$!
+    
+    # Vänta lite för att servern ska starta
+    sleep 5
+    
+    # Kontrollera om servern startade
+    if kill -0 $FRONTEND_PID 2>/dev/null; then
+        print_success "Frontend utvecklingsserver startad (PID: $FRONTEND_PID) ✓"
+        print_info "Frontend är tillgänglig på: http://localhost:3000"
+    else
+        print_error "Frontend utvecklingsserver startade inte korrekt"
+        exit 1
+    fi
+    
+    # Gå tillbaka till root-mappen
+    cd ..
+}
+
 # Starta om API med lokal container (behåll kluster)
 restart_api_local() {
     print_info "🔄 Startar om API med lokal container (behåll kluster)..."
@@ -1329,8 +1586,23 @@ delete_save_images() {
 
 # Huvudlogik
 case "${1:-help}" in
+    setup)
+        setup_all
+        ;;
     create)
         create_all
+        ;;
+    deploy-all)
+        deploy_all
+        ;;
+    deploy-backend)
+        deploy_backend
+        ;;
+    deploy-frontend)
+        deploy_frontend
+        ;;
+    start-frontend)
+        start_frontend
         ;;
     install-all-gitlab)
         install_all_gitlab
@@ -1371,6 +1643,9 @@ case "${1:-help}" in
     build-api-gitlab)
         build_api_gitlab
         ;;
+    build-frontend)
+        build_frontend
+        ;;
     rebuild-api)
         rebuild_api
         ;;
@@ -1383,8 +1658,14 @@ case "${1:-help}" in
     deploy-api-gitlab|start-api-gitlab)
         deploy_api_gitlab
         ;;
+    deploy-frontend)
+        deploy_frontend
+        ;;
     stop-api)
         stop_api
+        ;;
+    stop-frontend)
+        stop_frontend
         ;;
     restart-api)
         restart_api
