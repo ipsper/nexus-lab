@@ -39,3 +39,16 @@ async def create_repository(repository: RepositoryInfo):
     
     repositories.append(repository)
     return repository
+
+
+@router.get("/{repository_name}/packages")
+async def get_repository_packages(repository_name: str):
+    """Hämta paket från specifik repository"""
+    # Kontrollera om repository finns
+    repo_exists = any(repo.name == repository_name for repo in repositories)
+    if not repo_exists:
+        raise HTTPException(status_code=404, detail="Repository inte hittad")
+    
+    # Hämta paket för denna repository
+    repo_packages = [pkg for pkg in packages if pkg.repository == repository_name]
+    return repo_packages
