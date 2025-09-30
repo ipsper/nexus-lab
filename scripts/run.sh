@@ -839,11 +839,9 @@ deploy_frontend() {
         exit 1
     fi
     
-    # Kontrollera om Frontend image finns
-    if ! docker images | grep -q nexus-frontend:latest; then
-        print_warning "Frontend Docker image finns inte. Bygger den först..."
-        build_frontend
-    fi
+    # Bygg alltid om Frontend image för att säkerställa senaste ändringar
+    print_info "Bygger Frontend Docker image..."
+    build_frontend
     
     # Ladda image till Kind-klustret
     kind load docker-image nexus-frontend:latest --name nexus-cluster

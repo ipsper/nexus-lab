@@ -39,7 +39,7 @@ export const Header: React.FC = () => {
                 <h1 className="text-2xl font-bold text-gray-900">
                   Nexus Repository Manager
                 </h1>
-                <p className="text-sm text-gray-600">Systemutveckling & Molntjänster</p>
+                <p className="text-sm text-gray-600">Package Repository Management</p>
               </div>
             </div>
           </div>
@@ -65,9 +65,14 @@ export const Header: React.FC = () => {
 
           {/* CTA Button */}
           <div className="hidden lg:flex items-center space-x-4">
-            <button className="btn btn-outline">
-              Kontakta oss
-            </button>
+            <a 
+              href="/api/docs" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="btn btn-outline"
+            >
+              API Docs
+            </a>
           </div>
 
           {/* Mobile menu button */}
@@ -110,9 +115,14 @@ export const Header: React.FC = () => {
                 )
               })}
               <div className="px-4 pt-4">
-                <button className="btn btn-outline w-full">
-                  Kontakta oss
-                </button>
+                <a 
+                  href="/api/docs" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-outline w-full"
+                >
+                  API Docs
+                </a>
               </div>
             </nav>
           </div>
