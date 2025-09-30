@@ -4,16 +4,30 @@ En komplett lösning för att köra Nexus Repository Manager med FastAPI i Kuber
 
 ## 🚀 Snabbstart
 
+### Komplett setup med Frontend + Backend
+
 ```bash
-# Komplett setup (rekommenderat)
+# 1. Starta Kind-kluster och Backend
 ./scripts/run.sh create
 
-# Kör alla tester
+# 2. Starta Frontend (i nytt terminalfönster)
+cd frontend
+npm install
+npm run dev
+
+# 3. Kör alla tester
 ./scripts/run-test.sh run-all
 
-# Ta bort allt när du är klar
+# 4. Ta bort allt när du är klar
 ./scripts/run.sh delete
 ```
+
+### Åtkomst till tjänster
+
+- **Frontend**: `http://localhost:3000` (React-applikation)
+- **Backend API**: `http://localhost:8000/api` (FastAPI via Kong)
+- **Swagger UI**: `http://localhost:8000/docs` (API-dokumentation)
+- **Nexus UI**: `http://localhost:8081` (Repository Manager)
 
 ## 📋 Översikt
 
@@ -26,11 +40,17 @@ Nexus Repository Manager är en kraftfull artefakt-hantering som stöder:
 
 ## ⚙️ Förutsättningar
 
+### Backend (Kind-kluster)
 - Docker installerat på systemet
 - Kind (Kubernetes in Docker) installerat
 - kubectl installerat
 - Minst 4GB RAM tillgängligt
 - Minst 20GB ledigt diskutrymme
+
+### Frontend (React-applikation)
+- Node.js 18+ installerat
+- npm eller yarn
+- Modern webbläsare (Chrome, Firefox, Safari, Edge)
 
 ## 📦 Pip-paket Distribution
 
@@ -88,9 +108,10 @@ nexus-api --port 3000
 
 ### Åtkomst till tjänster
 
-- **Nexus UI**: `http://localhost:8081` (direkt)
-- **API via Kong**: `http://localhost:8000/api` (via Kong Gateway)
-- **Swagger UI**: `http://localhost:8000/docs` (via Kong Gateway)
+- **Frontend**: `http://localhost:3000` (React-applikation)
+- **Backend API**: `http://localhost:8000/api` (FastAPI via Kong)
+- **Swagger UI**: `http://localhost:8000/docs` (API-dokumentation)
+- **Nexus UI**: `http://localhost:8081` (Repository Manager)
 
 ### Hämta admin-lösenord
 
@@ -109,10 +130,23 @@ kubectl exec -n nexus deployment/nexus -- cat /nexus-data/admin.password
 
 ## 📖 Användning
 
+### Snabbstart med Frontend
+
+```bash
+# Öppna React-applikationen
+open http://localhost:3000
+
+# Frontend innehåller:
+# - Dashboard med systemöversikt
+# - Repository-hantering
+# - Schema-hantering
+# - Statistik och konfiguration
+```
+
 ### Snabbstart med API
 
 ```bash
-# Testa API:et
+# Testa API:et direkt
 curl http://localhost:8000/api/health
 
 # Öppna Swagger UI
@@ -207,8 +241,9 @@ kind delete cluster --name nexus-cluster
 - **[🔧 run.sh Guide](scripts/run-README.md)** - Huvudhanteringsskript för installation och konfiguration
 - **[🐛 k8s-debug.sh Guide](scripts/k8s-debug-README.md)** - Avancerat debug-skript för felsökning
 - **[🧪 Testsystem Guide](testning/README.md)** - Komplett guide för testsystemet
-- **[🚀 App Guide](app/README.md)** - FastAPI-applikationens struktur och endpoints
-- **[📅 Schemaläggare Guide](app/api/v1/SCHEDULER_README.md)** - Automatisk schemaläggning av API-anrop
+- **[🚀 Backend Guide](build-pip/nexus_repository_api/README.md)** - FastAPI-applikationens struktur och endpoints
+- **[🎨 Frontend Guide](frontend/README.md)** - React-applikationens struktur och komponenter
+- **[📅 Schemaläggare Guide](build-pip/nexus_repository_api/api/v1/SCHEDULER_README.md)** - Automatisk schemaläggning av API-anrop
 
 ### 🧪 Testsystem
 Projektet har ett omfattande testsystem med:

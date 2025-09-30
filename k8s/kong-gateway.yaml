@@ -73,6 +73,17 @@ data:
         methods:
         - GET
         strip_path: false
+    - name: frontend-service
+      url: http://nexus-frontend-service.nexus-frontend.svc.cluster.local:3000
+      routes:
+      - name: frontend-route
+        paths:
+        - /
+        - /repositories
+        - /schedules
+        - /statistics
+        - /settings
+        strip_path: false
 ---
 apiVersion: apps/v1
 kind: Deployment
