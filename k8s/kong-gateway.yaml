@@ -60,6 +60,11 @@ data:
         - /api
         - /api/
         strip_path: false
+      - name: repository-route
+        paths:
+        - /repository
+        - /repository/
+        strip_path: false
       - name: openapi-route
         paths:
         - /api/openapi.json

@@ -74,7 +74,7 @@ async def get_supported_formats():
 async def get_config():
     """Hämta konfiguration"""
     return {
-        "nexus_url": "http://localhost:8081",
+        "nexus_url": "http://localhost:8000",
         "api_version": "1.0.0",
         "supported_operations": [
             "list_repositories",
