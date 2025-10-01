@@ -52,6 +52,12 @@
 - Alltid vänta på att API:et startar efter `rebuild-api`
 - Kontrollera att Kong Gateway fungerar innan du kör tester
 
+## 🧪 Test-struktur
+**REGEL 5:** Använd INGA klasser i testfiler, bara funktioner:
+- ✅ `def test_something():` - funktioner
+- ❌ `class TestSomething:` - inga klasser
+- Klasser får bara finnas i `support/` mappen
+
 ## 🔍 Felsökning
 Om testerna misslyckas:
 1. Kontrollera att API:et körs: `curl http://localhost:8000/api/health`

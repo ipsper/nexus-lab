@@ -114,28 +114,28 @@ repositories = [
         name="pypi-hosted",
         type="hosted",
         format="pypi",
-        url="http://localhost:8081/repository/pypi-hosted/",
+        url="http://localhost:8000/repository/pypi-hosted/",
         status="active"
     ),
     RepositoryInfo(
         name="apt-hosted",
         type="hosted",
         format="apt",
-        url="http://localhost:8081/repository/apt-hosted/",
+        url="http://localhost:8000/repository/apt-hosted/",
         status="active"
     ),
     RepositoryInfo(
         name="rpm-hosted",
         type="hosted",
         format="rpm",
-        url="http://localhost:8081/repository/rpm-hosted/",
+        url="http://localhost:8000/repository/rpm-hosted/",
         status="active"
     ),
     RepositoryInfo(
         name="docker-hosted",
         type="hosted",
         format="docker",
-        url="http://localhost:8081/repository/docker-hosted/",
+        url="http://localhost:8000/repository/docker-hosted/",
         status="active"
     )
 ]

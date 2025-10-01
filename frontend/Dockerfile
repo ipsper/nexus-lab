@@ -18,8 +18,11 @@ COPY . .
 # Bygg applikationen
 RUN npm run build
 
+# Kopiera serve.json till dist-mappen
+RUN cp serve.json dist/ || echo "serve.json finns inte, fortsätter ändå"
+
 # Exponera port
 EXPOSE 3000
 
-# Starta serve för att servera byggda filer
+# Starta serve för att servera byggda filer med SPA-support
 CMD ["serve", "-s", "dist", "-l", "3000"]

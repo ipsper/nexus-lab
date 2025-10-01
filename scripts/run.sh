@@ -529,13 +529,13 @@ delete_nexus() {
 build_api() {
     print_info "Bygger API Docker image (lokal)..."
     
-    if [ ! -f "Dockerfile" ]; then
-        print_error "Dockerfile finns inte. Kör från projektets root-katalog."
+    if [ ! -f "backend/Dockerfile" ]; then
+        print_error "backend/Dockerfile finns inte. Kör från projektets root-katalog."
         exit 1
     fi
     
-    # Bygg lokal Docker image från root Dockerfile (utan cache)
-    docker build --no-cache -f Dockerfile -t nexus-api:latest .
+    # Bygg lokal Docker image från backend Dockerfile (utan cache)
+    docker build --no-cache -f backend/Dockerfile -t nexus-api:latest .
     
     print_success "API Docker image byggd (lokal)!"
 }
@@ -544,33 +544,38 @@ build_api() {
 build_api_gitlab() {
     print_info "Bygger API Docker image (GitLab)..."
     
-    if [ ! -f "Dockerfile.gitlab" ]; then
-        print_error "Dockerfile.gitlab finns inte. Kör från projektets root-katalog."
+    if [ ! -f "backend/Dockerfile.gitlab" ]; then
+        print_error "backend/Dockerfile.gitlab finns inte. Kör från projektets root-katalog."
         exit 1
     fi
     
     # Bygg GitLab Docker image
-    docker build --no-cache -f Dockerfile.gitlab -t nexus-api-gitlab:latest .
+    docker build --no-cache -f backend/Dockerfile.gitlab -t nexus-api-gitlab:latest .
     
     print_success "API Docker image byggd (GitLab)!"
 }
 
 # Bygg Frontend Docker image
 build_frontend() {
-    print_info "Bygger Frontend Docker image..."
+    print_info "Bygger Frontend (npm-paket och Docker image)..."
     
-    if [ ! -d "frontend" ]; then
-        print_error "Frontend-mappen finns inte. Kör från projektets root-katalog."
+    if [ ! -d "build-npm" ]; then
+        print_error "build-npm-mappen finns inte. Kör från projektets root-katalog."
         exit 1
     fi
     
-    # Gå till frontend-mappen
-    cd frontend
+    # Bygg npm-paketet först
+    print_info "Bygger npm-paket..."
+    ./scripts/build-npm.sh
+    if [ $? -ne 0 ]; then
+        print_error "Fel vid byggande av npm-paket"
+        exit 1
+    fi
     
-    # Bygg Frontend Docker image
+    # Bygg Frontend Docker image från build-npm
+    print_info "Bygger Frontend Docker image..."
+    cd build-npm
     docker build --no-cache -t nexus-frontend:latest .
-    
-    # Gå tillbaka till root-mappen
     cd ..
     
     print_success "Frontend Docker image byggd!"
@@ -839,11 +844,9 @@ deploy_frontend() {
         exit 1
     fi
     
-    # Kontrollera om Frontend image finns
-    if ! docker images | grep -q nexus-frontend:latest; then
-        print_warning "Frontend Docker image finns inte. Bygger den först..."
-        build_frontend
-    fi
+    # Bygg alltid om Frontend image för att säkerställa senaste ändringar
+    print_info "Bygger Frontend Docker image..."
+    build_frontend
     
     # Ladda image till Kind-klustret
     kind load docker-image nexus-frontend:latest --name nexus-cluster
